@@ -35,6 +35,14 @@ export function Settings() {
   const me = useStore((state) => state.me);
   const [section, setSection] = useState<Section>('profile');
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOverlay(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   if (!me) return null;
 
   return (
