@@ -199,6 +199,9 @@ reverse proxy; a multi-node future would replace the in-process hub with a share
 - Windows `.exe` (NSIS installer + portable), macOS `.dmg`, Linux `.AppImage` and `.deb`
 - `fluenta-android.apk` (debug-signed; add a keystore secret for a signed release build)
 
+Trigger it by pushing a tag (`git tag v1.0.0 && git push origin v1.0.0`) or by running the
+**Release** workflow manually from the Actions tab.
+
 Locally, `npm run bundle` produces the two web bundles in `release/`.
 
 ---

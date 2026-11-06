@@ -46,11 +46,9 @@ jobs:
           - os: ubuntu-latest
             script: dist:linux
             artifact: desktop-linux
-            path: apps/desktop/dist/*.AppImage
-          - os: ubuntu-latest
-            script: dist:linux
-            artifact: desktop-deb
-            path: apps/desktop/dist/*.deb
+            path: |
+              apps/desktop/dist/*.AppImage
+              apps/desktop/dist/*.deb
           - os: windows-latest
             script: dist:win
             artifact: desktop-windows
@@ -92,8 +90,10 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '17'
       - uses: android-actions/setup-android@v3
+      - name: Install Android SDK packages
+        run: sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
       - name: Install Capacitor
         working-directory: apps/android
         run: npm install --no-audit --no-fund

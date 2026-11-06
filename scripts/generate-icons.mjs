@@ -49,9 +49,10 @@ function encodePng(width, height, rgba) {
   ]);
 }
 
-const BG = [10, 10, 13];
-const RED = [208, 52, 74];
-const WHITE = [244, 244, 247];
+// Brand: red tile, white "F". Same mark as the in-app `.brand-mark`.
+const TILE = [168, 27, 45];
+const TILE_TOP = [206, 44, 66];
+const WHITE = [247, 247, 250];
 
 function insideRoundedRect(x, y, size, inset, radius) {
   const min = inset;
@@ -62,45 +63,33 @@ function insideRoundedRect(x, y, size, inset, radius) {
   return (x - cx) ** 2 + (y - cy) ** 2 <= radius * radius;
 }
 
-function insideRect(x, y, x0, y0, x1, y1) {
-  return x >= x0 && x <= x1 && y >= y0 && y <= y1;
+function insideRect(x, y, rect) {
+  return x >= rect.x0 && x <= rect.x1 && y >= rect.y0 && y <= rect.y1;
 }
 
-/** Draws the Fluenta "F" mark: rounded tile, red stem, white arms. */
+/** Draws the Fluenta mark with 3x supersampling for clean edges. */
 function paint(size, insetRatio) {
-  const ss = 3; // supersampling for smooth edges
+  const ss = 3;
   const total = size * ss;
-  const scale = total / 512;
-  const accent = {
-    x0: 152 * scale,
-    x1: 196 * scale,
-    y0: 128 * scale,
-    y1: 384 * scale,
-  };
-  const topArm = { x0: 152 * scale, x1: 360 * scale, y0: 128 * scale, y1: 180 * scale };
-  const midArm = { x0: 152 * scale, x1: 322 * scale, y0: 238 * scale, y1: 288 * scale };
+  const k = total / 512;
   const inset = insetRatio * total;
-  const radius = (total - inset * 2) * 0.235;
+  const radius = (total - inset * 2) * 0.22;
+
+  // The F, centred on the tile: stem plus two arms.
+  const stem = { x0: 186 * k, x1: 236 * k, y0: 132 * k, y1: 380 * k };
+  const topArm = { x0: 186 * k, x1: 344 * k, y0: 132 * k, y1: 182 * k };
+  const midArm = { x0: 186 * k, x1: 308 * k, y0: 244 * k, y1: 294 * k };
+  const shapes = [stem, topArm, midArm];
 
   const acc = new Float64Array(size * size * 4);
   for (let y = 0; y < total; y += 1) {
     for (let x = 0; x < total; x += 1) {
-      let color = null;
-      if (insideRoundedRect(x, y, total, inset, radius)) {
-        color = BG;
-        for (const region of [accent, topArm, midArm]) {
-          if (
-            insideRect(x, y, region.x0, region.y0, region.x1, region.y1) ||
-            (region === accent && insideRect(x, y, region.x0, region.y0, topArm.x1, region.y1))
-          ) {
-            color = region === accent ? RED : WHITE;
-          }
-        }
+      if (!insideRoundedRect(x, y, total, inset, radius)) continue;
+      let color = y < total * 0.45 ? TILE_TOP : TILE;
+      for (const shape of shapes) {
+        if (insideRect(x, y, shape)) color = WHITE;
       }
-      if (!color) continue;
-      const px = Math.floor(x / ss);
-      const py = Math.floor(y / ss);
-      const i = (py * size + px) * 4;
+      const i = (Math.floor(y / ss) * size + Math.floor(x / ss)) * 4;
       acc[i] += color[0];
       acc[i + 1] += color[1];
       acc[i + 2] += color[2];
@@ -111,12 +100,12 @@ function paint(size, insetRatio) {
   const out = Buffer.alloc(size * size * 4);
   const samples = ss * ss;
   for (let i = 0; i < size * size; i += 1) {
-    const alpha = acc[i * 4 + 3] / 255;
-    if (alpha === 0) continue;
-    out[i * 4] = Math.round(acc[i * 4] / alpha);
-    out[i * 4 + 1] = Math.round(acc[i * 4 + 1] / alpha);
-    out[i * 4 + 2] = Math.round(acc[i * 4 + 2] / alpha);
-    out[i * 4 + 3] = Math.round((acc[i * 4 + 3] / samples) * 1);
+    const coverage = acc[i * 4 + 3] / 255;
+    if (coverage === 0) continue;
+    out[i * 4] = Math.round(acc[i * 4] / coverage);
+    out[i * 4 + 1] = Math.round(acc[i * 4 + 1] / coverage);
+    out[i * 4 + 2] = Math.round(acc[i * 4 + 2] / coverage);
+    out[i * 4 + 3] = Math.round(acc[i * 4 + 3] / samples);
   }
   return encodePng(size, size, out);
 }
