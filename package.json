@@ -1,0 +1,45 @@
+{
+  "name": "fluenta",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Fluenta — a lightweight, modern alternative to Discord for web, desktop and Android.",
+  "workspaces": [
+    "apps/server",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=22.6"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c red,magenta \"npm:dev:server\" \"npm:dev:web\"",
+    "dev:server": "node --watch apps/server/src/index.ts",
+    "dev:web": "vite --config apps/web/vite.config.ts",
+    "build": "npm run build:web",
+    "build:web": "vite build --config apps/web/vite.config.ts",
+    "start": "node apps/server/src/index.ts",
+    "typecheck": "tsc -p apps/server/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
+    "test": "node --test tests/",
+    "seed": "node apps/server/src/scripts/seed.ts",
+    "icons": "node scripts/generate-icons.mjs",
+    "verify": "npm run typecheck && npm test && npm run build:web",
+    "bundle": "bash scripts/package-release.sh",
+    "desktop:install": "npm --prefix apps/desktop install",
+    "desktop:start": "npm --prefix apps/desktop start",
+    "desktop:dist": "npm --prefix apps/desktop run dist",
+    "android:install": "npm --prefix apps/android install",
+    "android:sync": "npm --prefix apps/android run sync"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/nodemailer": "^6.4.17",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@types/ws": "^8.5.13",
+    "@types/web-push": "^3.6.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "concurrently": "^9.1.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.5"
+  }
+}

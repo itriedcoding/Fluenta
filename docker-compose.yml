@@ -1,0 +1,16 @@
+services:
+  fluenta:
+    build: .
+    restart: unless-stopped
+    ports:
+      - '8787:8787'
+    environment:
+      APP_ORIGIN: ${APP_ORIGIN:-http://localhost:8787}
+      # GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      # GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      # SMTP_URL: ${SMTP_URL}
+    volumes:
+      - fluenta-data:/data
+
+volumes:
+  fluenta-data:

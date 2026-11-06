@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'" />
+    <title>Connect Fluenta</title>
+    <style>
+      :root { color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(700px 420px at 50% 0%, rgba(160, 27, 45, 0.22), transparent 65%), #08080a;
+        color: #f4f4f7;
+        font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        padding: 24px;
+      }
+      .card {
+        width: min(520px, 100%);
+        background: #0d0d11;
+        border: 1px solid #24242d;
+        border-radius: 18px;
+        padding: 28px;
+        box-shadow: 0 30px 70px -30px #000;
+      }
+      .mark {
+        width: 48px; height: 48px; border-radius: 14px;
+        background: linear-gradient(150deg, #e24a5e, #a01b2d);
+        display: grid; place-items: center; font-weight: 800; font-size: 22px;
+        margin-bottom: 18px;
+      }
+      h1 { font-size: 22px; margin: 0 0 6px; letter-spacing: -0.02em; }
+      p { color: #8b8b99; font-size: 13px; line-height: 1.6; margin: 0 0 18px; }
+      label { display: block; font-size: 12px; font-weight: 600; color: #c5c5d0; margin-bottom: 6px; }
+      input {
+        width: 100%; padding: 11px 12px; border-radius: 9px; background: #101014;
+        border: 1px solid #24242d; color: #f4f4f7; font-size: 14px; font-family: inherit;
+      }
+      input:focus { outline: none; border-color: rgba(201, 42, 63, 0.5); box-shadow: 0 0 0 3px rgba(201, 42, 63, 0.14); }
+      button {
+        margin-top: 14px; width: 100%; padding: 11px 16px; border: 0; border-radius: 9px;
+        background: linear-gradient(180deg, #c92a3f, #a01b2d); color: #fff;
+        font-size: 14px; font-weight: 650; cursor: pointer; font-family: inherit;
+      }
+      button:hover { filter: brightness(1.08); }
+      .error { color: #ffb4b7; font-size: 12px; margin-top: 10px; min-height: 18px; }
+      .hint { margin-top: 16px; font-size: 11.5px; color: #6a6a76; }
+      code { background: #17171d; padding: 1px 5px; border-radius: 4px; font-size: 11px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="mark">F</div>
+      <h1>Connect to your Fluenta server</h1>
+      <p>
+        The desktop app is a thin, fast shell around your own Fluenta deployment. Point it at the
+        address where your server is running — the same account works on web, desktop and mobile.
+      </p>
+      <form id="form">
+        <label for="url">Server address</label>
+        <input id="url" placeholder="https://chat.example.com" autocomplete="off" spellcheck="false" />
+        <button type="submit">Connect</button>
+        <div class="error" id="error"></div>
+      </form>
+      <p class="hint">
+        Self-hosting? Start the server with <code>npm start</code> and use
+        <code>http://localhost:8787</code>.
+      </p>
+    </div>
+    <script>
+      const form = document.getElementById('form');
+      const input = document.getElementById('url');
+      const error = document.getElementById('error');
+
+      if (window.fluentaDesktop) {
+        window.fluentaDesktop.getServerUrl().then((url) => {
+          if (url) input.value = url;
+          input.focus();
+        });
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        error.textContent = '';
+        if (!window.fluentaDesktop) {
+          error.textContent = 'Desktop bridge unavailable.';
+          return;
+        }
+        const result = await window.fluentaDesktop.setServerUrl(input.value.trim());
+        if (!result.ok) error.textContent = result.error;
+      });
+    </script>
+  </body>
+</html>

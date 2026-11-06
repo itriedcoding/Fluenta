@@ -1,0 +1,143 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  web:
+    name: Web bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node scripts/generate-icons.mjs
+      - run: npm run build:web
+      - name: Package web bundle
+        run: |
+          mkdir -p out/fluenta-web
+          cp -r apps/server/public/* out/fluenta-web/
+          cp README.md .env.example out/fluenta-web/ 2>/dev/null || true
+          cd out && zip -qr fluenta-web.zip fluenta-web
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web
+          path: out/fluenta-web.zip
+
+  desktop:
+    name: Desktop (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            script: dist:linux
+            artifact: desktop-linux
+            path: apps/desktop/dist/*.AppImage
+          - os: ubuntu-latest
+            script: dist:linux
+            artifact: desktop-deb
+            path: apps/desktop/dist/*.deb
+          - os: windows-latest
+            script: dist:win
+            artifact: desktop-windows
+            path: |
+              apps/desktop/dist/*.exe
+          - os: macos-latest
+            script: dist:mac
+            artifact: desktop-macos
+            path: apps/desktop/dist/*.dmg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node scripts/generate-icons.mjs
+      - name: Install shell dependencies
+        working-directory: apps/desktop
+        run: npm install --no-audit --no-fund
+      - name: Build installers
+        working-directory: apps/desktop
+        run: npm run ${{ matrix.script }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.path }}
+          if-no-files-found: error
+
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: android-actions/setup-android@v3
+      - name: Install Capacitor
+        working-directory: apps/android
+        run: npm install --no-audit --no-fund
+      - name: Generate native project
+        working-directory: apps/android
+        run: npx cap add android || true
+      - name: Sync web assets and config
+        working-directory: apps/android
+        env:
+          FLUENTA_SERVER_URL: ${{ vars.FLUENTA_SERVER_URL }}
+        run: npx cap sync android
+      - name: Build debug APK
+        working-directory: apps/android/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Rename artifact
+        run: |
+          mkdir -p out
+          cp apps/android/android/app/build/outputs/apk/debug/app-debug.apk out/fluenta-android.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: out/fluenta-android.apk
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    needs: [web, desktop, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Flatten artifacts
+        run: |
+          mkdir -p dist
+          find artifacts -type f \( -name '*.zip' -o -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.apk' \) -exec cp {} dist/ \;
+          ls -la dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', github.run_number) }}
+          name: Fluenta ${{ github.ref_name }}
+          generate_release_notes: true
+          files: dist/*
+          fail_on_unmatched_files: false

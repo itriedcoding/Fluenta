@@ -1,0 +1,61 @@
+{
+  "name": "@fluenta/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Fluenta desktop shell (Electron)",
+  "main": "main.cjs",
+  "author": "Fluenta",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --publish never",
+    "dist:linux": "electron-builder --linux AppImage deb --publish never",
+    "dist:win": "electron-builder --win nsis portable --publish never",
+    "dist:mac": "electron-builder --mac dmg --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "app.fluenta.desktop",
+    "productName": "Fluenta",
+    "copyright": "Copyright © 2026 Fluenta",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "setup.html",
+      "build/icon.png"
+    ],
+    "extraMetadata": {
+      "name": "fluenta"
+    },
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "shortcutName": "Fluenta"
+    },
+    "mac": {
+      "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+      "category": "public.app-category.social-networking",
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Network;Chat",
+      "icon": "build/icon.png"
+    }
+  }
+}
