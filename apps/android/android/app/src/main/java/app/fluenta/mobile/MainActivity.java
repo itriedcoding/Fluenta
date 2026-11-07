@@ -39,6 +39,13 @@ public class MainActivity extends BridgeActivity {
 
         WebView webView = getBridge().getWebView();
         if (webView == null) return;
+        // Keep the bundled UI at the size it was designed for. Android's system
+        // font scaling and pinch-zoom otherwise inflate text inside fixed-height
+        // rows, and the whole app looks squashed together.
+        webView.getSettings().setTextZoom(100);
+        webView.getSettings().setSupportZoom(false);
+        webView.getSettings().setBuiltInZoomControls(false);
+        webView.getSettings().setDisplayZoomControls(false);
         // Voice rooms connect without an extra tap after joining a channel.
         webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
         webView.setWebChromeClient(new BridgeWebChromeClient(getBridge()) {

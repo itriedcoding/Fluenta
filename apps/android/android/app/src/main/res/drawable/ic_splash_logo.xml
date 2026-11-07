@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The launch mark is a vector so it stays sharp on every screen density instead
+  of being a stretched bitmap. Shapes match the web icon (a hand-drawn F).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+
+    <path
+        android:fillColor="#8B1220"
+        android:pathData="M150,118 L218,118 L218,394 L150,394 Z" />
+    <path
+        android:fillColor="#E0384F"
+        android:pathData="M150,118 L358,118 L358,180 L150,180 Z" />
+    <path
+        android:fillColor="#D13048"
+        android:pathData="M150,242 L320,242 L320,304 L150,304 Z" />
+</vector>

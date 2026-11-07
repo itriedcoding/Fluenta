@@ -158,8 +158,27 @@ const DEFAULT_MEMBER_PERMISSIONS =
   PERMISSIONS.SPEAK |
   PERMISSIONS.MENTION_EVERYONE;
 
+/**
+ * Platform staff. An account created with one of these email addresses gets the
+ * Staff badge automatically and may hand badges out to anyone on the device.
+ * This is the only privilege that is not tied to being the founder of a space.
+ */
+const PLATFORM_STAFF_EMAILS = new Set(['donovanbrady102@gmail.com']);
+
+function isPlatformStaff(user: DeviceUser | null | undefined): boolean {
+  return Boolean(user && PLATFORM_STAFF_EMAILS.has(user.email.trim().toLowerCase()));
+}
+
+function canManageBadges(user: DeviceUser | null | undefined): boolean {
+  if (!user) return false;
+  if (isPlatformStaff(user)) return true;
+  const founder = [...db.users].sort((a, b) => a.createdAt - b.createdAt)[0]?.id;
+  return founder === user.id;
+}
+
 const BADGE_CATALOG = [
   { key: 'founder', name: 'Founder', description: 'Created this Fluenta space.', howToEarn: 'Automatic for the first account on this device.', color: '#e6b45c', icon: 'crown', automatic: true },
+  { key: 'staff', name: 'Staff', description: 'Part of the Fluenta staff team.', howToEarn: 'Automatic for staff accounts.', color: '#a78bfa', icon: 'staff', automatic: true },
   { key: 'early', name: 'Early member', description: 'One of the first accounts here.', howToEarn: 'Automatic while you are among the first 100 accounts on this device.', color: '#74c0fc', icon: 'sparkle', automatic: true },
   { key: 'verified', name: 'Verified', description: 'Identity checked by the space owner.', howToEarn: 'Granted by the founder.', color: '#4ade80', icon: 'shield', automatic: false },
   { key: 'developer', name: 'Developer', description: 'Wrote code that shipped in Fluenta.', howToEarn: 'Granted for merged pull requests.', color: '#b794f6', icon: 'terminal', automatic: false },
@@ -413,6 +432,7 @@ function badgesFor(userId: ID): string[] {
   const earlyIds = new Set([...db.users].sort((a, b) => a.createdAt - b.createdAt).slice(0, 100).map((user) => user.id));
   const keys: string[] = [];
   if (userId === founder) keys.push('founder');
+  if (isPlatformStaff(userById(userId))) keys.push('staff');
   if (earlyIds.has(userId)) keys.push('early');
   for (const badge of db.badges) {
     if (badge.userId === userId && BADGE_ORDER.has(badge.key)) keys.push(badge.key);
@@ -1605,13 +1625,11 @@ async function route(method: string, rawUrl: string, rawBody: BodyInit | null | 
 
     // ---- badges ----
     if (method === 'GET' && match(segments, '/api/badges')) {
-      const founder = [...db.users].sort((a, b) => a.createdAt - b.createdAt)[0]?.id;
-      return ok({ badges: BADGE_CATALOG, mine: badgesFor(me.id), canGrant: founder === me.id });
+      return ok({ badges: BADGE_CATALOG, mine: badgesFor(me.id), canGrant: canManageBadges(me) });
     }
 
     if (method === 'POST' && (params = match(segments, '/api/badges/:key/grant'))) {
-      const founder = [...db.users].sort((a, b) => a.createdAt - b.createdAt)[0]?.id;
-      if (founder !== me.id) throw new HttpError(403, 'Only the founder can grant badges');
+      if (!canManageBadges(me)) throw new HttpError(403, 'Only the founder or staff can grant badges');
       const definition = BADGE_CATALOG.find((badge) => badge.key === params!.key);
       if (!definition) throw new HttpError(404, 'Unknown badge');
       if (definition.automatic) throw new HttpError(400, `${definition.name} is granted automatically`);
@@ -1627,8 +1645,7 @@ async function route(method: string, rawUrl: string, rawBody: BodyInit | null | 
     }
 
     if (method === 'DELETE' && (params = match(segments, '/api/badges/:key/grant/:userId'))) {
-      const founder = [...db.users].sort((a, b) => a.createdAt - b.createdAt)[0]?.id;
-      if (founder !== me.id) throw new HttpError(403, 'Only the founder can manage badges');
+      if (!canManageBadges(me)) throw new HttpError(403, 'Only the founder or staff can manage badges');
       db.badges = db.badges.filter((badge) => !(badge.userId === params!.userId && badge.key === params!.key));
       save();
       const badges = badgesFor(params!.userId);

@@ -594,7 +594,7 @@ function BadgesSection() {
         <h3>Your badges</h3>
         <p className="settings-hint">
           Badges live on your account, so they follow you across web, desktop and Android. Automatic badges
-          are earned here; everything else is granted by this server's founder.
+          are earned here; everything else is granted by the founder or by Fluenta staff.
         </p>
         {mine.length === 0 ? (
           <p className="settings-hint">No badges yet.</p>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Solid app background with the mark centred. Drawing this as a layer list means
+  no bitmap gets scaled up on large phones, which is what made the old launch
+  screen look blurry.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/splash_background" />
+    <item
+        android:drawable="@drawable/ic_splash_logo"
+        android:gravity="center" />
+</layer-list>
