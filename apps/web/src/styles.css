@@ -3615,6 +3615,27 @@ select.input {
   flex: 1;
 }
 
+/* Sign-in, reset and settings pages are taller than a phone screen: give them a
+   fixed viewport height (with a vh fallback for older WebViews) so their content
+   scrolls instead of being clipped by the locked body. */
+.landing,
+.centered-page {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.app-shell,
+.boot-screen {
+  height: 100vh;
+  height: 100dvh;
+}
+
 /* ------------------------------------------------------------ responsive -- */
 
 .mobile-only,
@@ -3796,6 +3817,11 @@ select.input {
     padding: 0;
     align-items: stretch;
     justify-content: stretch;
+  }
+
+  .centered-page {
+    align-items: start;
+    padding: calc(24px + env(safe-area-inset-top)) 20px calc(24px + env(safe-area-inset-bottom));
   }
 
   .settings-panel {
