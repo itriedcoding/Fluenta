@@ -1,4 +1,5 @@
 import { all, get } from './db.ts';
+import { badgesForUsers } from './badges.ts';
 import { hub, type VoicePeer } from './realtime.ts';
 import { channelAudience, effectivePermissions, type ChannelRow, type CommunityRow } from './access.ts';
 
@@ -43,6 +44,7 @@ export function communityMembers(communityId: string) {
     list.push(r.role_id);
     roleMap.set(r.user_id, list);
   }
+  const badges = badgesForUsers(rows.map((row) => row.id));
   return rows.map((row) => ({
     userId: row.id,
     username: row.username,
@@ -53,6 +55,7 @@ export function communityMembers(communityId: string) {
     presence: presenceFor(row.id, row.presence),
     nickname: row.nickname,
     roles: roleMap.get(row.id) ?? [],
+    badges: badges[row.id] ?? [],
     joinedAt: row.joined_at,
   }));
 }
@@ -125,13 +128,15 @@ export function communityPayload(community: CommunityRow, viewerId: string) {
 }
 
 export function conversationMembers(conversationId: string) {
-  return all<MemberRow>(
+  const rows = all<MemberRow>(
     `SELECT u.id, u.username, u.display_name, u.avatar_id, u.bio, u.custom_status, u.presence,
             NULL AS nickname, cm.joined_at
      FROM conversation_members cm JOIN users u ON u.id = cm.user_id
      WHERE cm.conversation_id = ?`,
     conversationId,
-  ).map((row) => ({
+  );
+  const badges = badgesForUsers(rows.map((row) => row.id));
+  return rows.map((row) => ({
     userId: row.id,
     username: row.username,
     displayName: row.display_name,
@@ -140,6 +145,7 @@ export function conversationMembers(conversationId: string) {
     customStatus: row.custom_status,
     presence: presenceFor(row.id, row.presence),
     roles: [] as string[],
+    badges: badges[row.id] ?? [],
     joinedAt: row.joined_at,
   }));
 }

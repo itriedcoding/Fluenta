@@ -73,11 +73,9 @@ failure.
 
 ---
 
-## What is implemented
+## What is implemented**Accounts** — email + password (scrypt, per-user salt), Google OAuth, 30-day sessions with hashed tokens in `HttpOnly` cookies (bearer tokens also accepted for native shells), password recovery, session revocation, profile editing, avatar upload, custom status, presence.
 
-**Accounts** — email + password (scrypt, per-user salt), Google OAuth, 30-day sessions with
-hashed tokens in `HttpOnly` cookies (bearer tokens also accepted for native shells), password
-recovery, session revocation, profile editing, avatar upload, custom status, presence.
+**Badges** — a real, server-side badge system with custom vector art. `Founder` and `Early member` are derived from the database; `Verified`, `Developer`, `Bug hunter`, `Helper`, `Builder` and `Community legend` are granted by the server founder from any profile card, or from the shell with `npm run badges -- grant @alex developer`. Badges appear on member lists, profile cards and Settings → Badges, and update live over the WebSocket.
 
 **Messaging** — real-time DMs and group chats, community channels, edit, delete, replies,
 reactions, typing indicators, read receipts, unread badges, file and image attachments with
@@ -133,22 +131,42 @@ window (own menu, external links open in the browser, window bounds persisted) �
 localhost dev server. Point it at `https://chat.example.com`, or at `http://localhost:8787` when
 self-hosting. Builds for Windows, macOS and Linux are produced by the release workflow.
 
-## Android app (Capacitor)
+## Android app
+
+The APK is a thin native shell that connects to **any** Fluenta server. On first launch it asks for
+the server address, verifies it with `GET /api/health`, then loads that server's client in the
+WebView. Settings → App updates → Server switches servers later. Nothing is hard-coded, so one APK
+works for every deployment, including a LAN address such as `http://192.168.1.10:8787`.
 
 ```bash
-npm run android:install
-FLUENTA_SERVER_URL=https://chat.example.com npm run android:sync
-cd apps/android && npx cap open android     # build/run from Android Studio
+npm run android:install      # Capacitor shell dependencies
+npm run android:sync         # copy www/ + capacitor config into the Gradle project
+npm run android:version      # sync versionName/versionCode from package.json
+cd apps/android/android && ./gradlew assembleDebug      # or assembleRelease
 ```
 
-The Android project loads the same client from your server, so the native app is always in sync
-with the web deployment. `npm run android:sync` copies the shell assets and config; the Gradle
-project is generated on first sync.
+`npm run android:build` does the web build, version sync and a signed release APK in one step.
+The launcher icon, adaptive foreground and every splash screen are generated from the same custom
+mark by `npm run icons`.
+
+### In-app updates
+
+Settings → App updates talks to this repository's GitHub releases. It asks
+`https://api.github.com/repos/itriedcoding/Fluenta/releases/latest` (at most once every six hours,
+or on demand), compares the tag with the installed APK version, and — when newer — downloads the
+`fluenta-android.apk` asset through Android's `DownloadManager`, showing real progress, then opens
+the package installer via a `FileProvider` URI. Automatic checks can be switched off per device.
+
+Signing matters here: Android will only install an update signed with the same key. The repository
+ships a **public development keystore** (`apps/android/keystore/fluenta-release.jks`, alias
+`fluenta`, password `fluentamobile`) so releases are updatable out of the box. For a broadly
+distributed release, replace it with your own private key and set these repository secrets:
+`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
+`ANDROID_KEY_PASSWORD`. Rotating the key later means installed users must reinstall manually.
 
 **Push on Android:** browsers and installed PWAs get real Web Push (including on Android Chrome).
 A Capacitor WebView cannot receive Web Push — a store build needs FCM wired through
-`@capacitor/push-notifications` and `google-services.json`. That native bridge is not included;
-the PWA path is the supported one today, and this is the honest state of it.
+`@capacitor/push-notifications` and `google-services.json`. The PWA path is the supported one.
 
 ---
 
@@ -192,17 +210,25 @@ reverse proxy; a multi-node future would replace the in-process hub with a share
 
 ## Releases
 
-`.github/workflows/release.yml` builds, on every `v*` tag:
+`.github/workflows/release.yml` builds on every `v*` tag and publishes a **GitHub Release** with:
 
+- `fluenta-android.apk` — the signed Android build (release-signed, verified with `apksigner` in CI)
 - `fluenta-web-*.zip` — static client bundle
-- `fluenta-selfhost-*.zip` — full server + client source bundle
 - Windows `.exe` (NSIS installer + portable), macOS `.dmg`, Linux `.AppImage` and `.deb`
-- `fluenta-android.apk` (debug-signed; add a keystore secret for a signed release build)
 
-Trigger it by pushing a tag (`git tag v1.0.0 && git push origin v1.0.0`) or by running the
-**Release** workflow manually from the Actions tab.
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
 
-Locally, `npm run bundle` produces the two web bundles in `release/`.
+Pushing the tag runs the tests-free release build (CI builds the web bundle, the installers and the
+APK) and attaches the APK to the release, which is exactly what the in-app updater reads. Running
+the **Release** workflow manually from the Actions tab builds and verifies the APK as a workflow
+artifact without publishing a release.
+
+Locally, `npm run bundle` produces the two web bundles in `release/`, and
+`npm run android:build` produces the signed APK at
+`apps/android/android/app/build/outputs/apk/release/app-release.apk`.
 
 ---
 

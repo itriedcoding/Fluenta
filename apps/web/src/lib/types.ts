@@ -10,6 +10,7 @@ export type User = {
   customStatus: string | null;
   presence: Presence;
   createdAt: number;
+  badges?: string[];
   email?: string;
 };
 
@@ -20,6 +21,7 @@ export type Person = {
   avatarUrl: string | null;
   presence: Presence;
   customStatus?: string | null;
+  badges?: string[];
 };
 
 export type Member = {
@@ -33,6 +35,7 @@ export type Member = {
   nickname: string | null;
   roles: string[];
   joinedAt: number;
+  badges?: string[];
 };
 
 export type Role = {

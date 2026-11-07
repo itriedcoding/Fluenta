@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { bootstrap, useStore } from './lib/store';
+import { maybeAutoCheckUpdates } from './lib/updater';
 import { Landing } from './components/Landing';
 import { Shell } from './components/Shell';
 import { ResetPassword } from './components/ResetPassword';
@@ -25,6 +26,7 @@ export function App() {
 
   useEffect(() => {
     void bootstrap();
+    void maybeAutoCheckUpdates();
   }, []);
 
   useEffect(() => {

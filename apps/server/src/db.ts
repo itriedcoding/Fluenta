@@ -38,6 +38,14 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
 
+CREATE TABLE IF NOT EXISTS user_badges (
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  badge_key TEXT NOT NULL,
+  granted_by TEXT REFERENCES users(id) ON DELETE SET NULL,
+  granted_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, badge_key)
+);
+
 CREATE TABLE IF NOT EXISTS password_resets (
   id TEXT PRIMARY KEY,
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,

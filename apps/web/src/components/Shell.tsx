@@ -10,6 +10,37 @@ import { Settings } from './Settings';
 import { Modals } from './Modals';
 import { VoiceRoom } from './VoiceRoom';
 import { Icon } from './ui';
+import { installUpdate, useUpdates } from '../lib/updater';
+
+function UpdatePill() {
+  const updates = useUpdates();
+  if (updates.status === 'available' && updates.release) {
+    return (
+      <button type="button" className="update-pill" onClick={() => void installUpdate()}>
+        <Icon name="download" size={15} />
+        <span>Fluenta {updates.release.version} is ready</span>
+        <strong>Update</strong>
+      </button>
+    );
+  }
+  if (updates.status === 'downloading') {
+    return (
+      <div className="update-pill downloading">
+        <span className="status-pip connecting" />
+        <span>Downloading update · {Math.round(updates.progress)}%</span>
+      </div>
+    );
+  }
+  if (updates.status === 'ready') {
+    return (
+      <div className="update-pill ready">
+        <Icon name="check" size={15} />
+        <span>Finish the update in Android's installer</span>
+      </div>
+    );
+  }
+  return null;
+}
 
 export function Shell({ inviteCode }: { inviteCode: string | null }) {
   const communities = useStore((state) => state.communities);
@@ -81,6 +112,8 @@ export function Shell({ inviteCode }: { inviteCode: string | null }) {
       >
         <Icon name="chevronLeft" size={20} />
       </button>
+
+      <UpdatePill />
 
       {overlay === 'search' && <SearchPalette />}
       {overlay === 'settings' && <Settings />}

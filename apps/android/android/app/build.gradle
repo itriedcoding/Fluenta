@@ -1,5 +1,21 @@
 apply plugin: 'com.android.application'
 
+// Version comes from version.properties, which scripts/sync-android-version.mjs
+// writes from package.json (or FLUENTA_VERSION on CI).
+def versionFile = rootProject.file('version.properties')
+def versionProps = new Properties()
+if (versionFile.exists()) {
+    versionFile.withInputStream { versionProps.load(it) }
+}
+def appVersionName = versionProps.getProperty('versionName', '1.0.0')
+def appVersionCode = versionProps.getProperty('versionCode', '10000').toInteger()
+
+// A stable signing key is required for the in-app updater: Android refuses to
+// install an APK whose signature differs from the installed one. Releases are
+// signed from these environment variables (see README); without them a release
+// build stays unsigned rather than silently producing an unupdatable APK.
+def keystorePath = System.getenv('FLUENTA_KEYSTORE')
+
 android {
     namespace "app.fluenta.mobile"
     compileSdk rootProject.ext.compileSdkVersion
@@ -7,8 +23,8 @@ android {
         applicationId "app.fluenta.mobile"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode appVersionCode
+        versionName appVersionName
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,10 +32,23 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (keystorePath != null && !keystorePath.isEmpty()) {
+                storeFile file(keystorePath)
+                storePassword System.getenv('FLUENTA_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('FLUENTA_KEY_ALIAS')
+                keyPassword System.getenv('FLUENTA_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (keystorePath != null && !keystorePath.isEmpty()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }

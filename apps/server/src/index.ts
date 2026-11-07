@@ -39,6 +39,8 @@ import messageRoutes from './routes/messages.ts';
 import uploadRoutes from './routes/uploads.ts';
 import searchRoutes from './routes/search.ts';
 import pushRoutes from './routes/push.ts';
+import badgeRoutes from './routes/badges.ts';
+import { badgesFor } from './badges.ts';
 
 const app = new Hono<Env>();
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app });
@@ -54,7 +56,7 @@ const SECURITY_HEADERS: Record<string, string> = {
     "media-src 'self' blob:",
     "style-src 'self' 'unsafe-inline'",
     "script-src 'self'",
-    "connect-src 'self' ws: wss:",
+    "connect-src 'self' ws: wss: https://api.github.com",
     "font-src 'self' data:",
     "object-src 'none'",
     "base-uri 'self'",
@@ -99,6 +101,7 @@ app.route('/api/messages', messageRoutes);
 app.route('/api/uploads', uploadRoutes);
 app.route('/api/search', searchRoutes);
 app.route('/api/push', pushRoutes);
+app.route('/api/badges', badgeRoutes);
 
 app.notFound((c) => c.json({ error: 'Not found' }, 404));
 app.onError((err, c) => {
@@ -168,7 +171,9 @@ function readyPayload(userId: string) {
   ).map((c) => communityPayload(c, userId));
   return {
     op: 'ready',
-    user: user ? { ...publicUser(user), presence: presenceFor(userId, user.presence) } : null,
+    user: user
+      ? { ...publicUser(user), presence: presenceFor(userId, user.presence), badges: badgesFor(userId) }
+      : null,
     communities,
     summaries: communitySummaries(userId),
     conversations: userConversations(userId),

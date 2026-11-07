@@ -1,18 +1,15 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 /**
- * The Android app is a native shell around the same web client that the server
- * serves, so accounts, conversations and settings are identical everywhere.
+ * The Android app is a native shell around the same web client the server
+ * serves. The server address is chosen inside the app on first launch (and can
+ * be changed later in Settings); it is not baked in at build time, so a single
+ * APK works for every self-hosted Fluenta instance.
  *
- * Point it at your deployment before building:
- *   FLUENTA_SERVER_URL=https://chat.example.com npm run build:debug
- *
- * The emulator default (http://10.0.2.2:8787) reaches a server running on the
- * developer machine. Cleartext is only allowed for that loopback alias.
+ * `www/` holds the connection screen (and the load-error screen) served from
+ * the local WebView origin. As soon as a server is saved, the bridge loads that
+ * origin instead and the real app takes over.
  */
-const serverUrl = process.env.FLUENTA_SERVER_URL || 'http://10.0.2.2:8787';
-const isLoopback = /^http:\/\/(10\.0\.2\.2|localhost|127\.0\.0\.1)(:\d+)?$/.test(serverUrl);
-
 const config: CapacitorConfig = {
   appId: 'app.fluenta.mobile',
   appName: 'Fluenta',
@@ -24,8 +21,6 @@ const config: CapacitorConfig = {
     webContentsDebuggingEnabled: false,
   },
   server: {
-    url: serverUrl,
-    cleartext: isLoopback,
     androidScheme: 'https',
   },
 };

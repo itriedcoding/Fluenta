@@ -4,6 +4,10 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build, for example 1.0.1 (defaults to package.json)'
+        required: false
 
 permissions:
   contents: write
@@ -82,6 +86,8 @@ jobs:
   android:
     name: Android APK
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -94,50 +100,83 @@ jobs:
       - uses: android-actions/setup-android@v3
       - name: Install Android SDK packages
         run: sdkmanager --install "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-      - name: Install Capacitor
+      - name: Resolve version
+        id: version
+        run: |
+          set -euo pipefail
+          VERSION="${{ github.event.inputs.version }}"
+          if [ -z "${VERSION:-}" ] && [[ "${GITHUB_REF}" == refs/tags/* ]]; then VERSION="${GITHUB_REF_NAME}"; fi
+          if [ -z "${VERSION:-}" ]; then VERSION="$(node -p "require('./package.json').version")"; fi
+          VERSION="${VERSION#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "FLUENTA_VERSION=${VERSION}" >> "$GITHUB_ENV"
+      - run: npm ci
+      - run: npm run build:web
+      - run: npm run android:version
+      - name: Install Android shell
         working-directory: apps/android
-        run: npm install --no-audit --no-fund
-      - name: Generate native project
+        run: npm ci
+      - name: Sync web assets and Capacitor config
         working-directory: apps/android
-        run: npx cap add android || true
-      - name: Sync web assets and config
-        working-directory: apps/android
-        env:
-          FLUENTA_SERVER_URL: ${{ vars.FLUENTA_SERVER_URL }}
         run: npx cap sync android
-      - name: Build debug APK
+      - name: Configure signing
+        run: |
+          set -euo pipefail
+          KEYSTORE="$GITHUB_WORKSPACE/apps/android/keystore/fluenta-release.jks"
+          if [ -n "${ANDROID_KEYSTORE_BASE64:-}" ]; then
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            KEYSTORE="$RUNNER_TEMP/release.jks"
+            echo "::notice::Signing with the ANDROID_KEYSTORE_BASE64 secret."
+          else
+            echo "::warning::Using the public development signing key committed in apps/android/keystore. Add the ANDROID_KEYSTORE_BASE64 secret to sign releases with your own private key."
+          fi
+          {
+            echo "FLUENTA_KEYSTORE=$KEYSTORE"
+            echo "FLUENTA_KEYSTORE_PASSWORD=${ANDROID_KEYSTORE_PASSWORD:-fluentamobile}"
+            echo "FLUENTA_KEY_ALIAS=${ANDROID_KEY_ALIAS:-fluenta}"
+            echo "FLUENTA_KEY_PASSWORD=${ANDROID_KEY_PASSWORD:-fluentamobile}"
+          } >> "$GITHUB_ENV"
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      - name: Build signed release APK
         working-directory: apps/android/android
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-      - name: Rename artifact
+          ./gradlew assembleRelease --no-daemon
+      - name: Verify APK
         run: |
+          set -euo pipefail
           mkdir -p out
-          cp apps/android/android/app/build/outputs/apk/debug/app-debug.apk out/fluenta-android.apk
+          cp apps/android/android/app/build/outputs/apk/release/app-release.apk out/fluenta-android.apk
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --print-certs out/fluenta-android.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging out/fluenta-android.apk | head -5
+          ls -lh out/fluenta-android.apk
       - uses: actions/upload-artifact@v4
         with:
           name: android
           path: out/fluenta-android.apk
-          if-no-files-found: error
 
   release:
-    name: Publish GitHub Release
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: [web, desktop, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
-      - name: Flatten artifacts
-        run: |
-          mkdir -p dist
-          find artifacts -type f \( -name '*.zip' -o -name '*.exe' -o -name '*.dmg' -o -name '*.AppImage' -o -name '*.deb' -o -name '*.apk' \) -exec cp {} dist/ \;
-          ls -la dist
-      - uses: softprops/action-gh-release@v2
+      - name: List release assets
+        run: find artifacts -type f -printf '%p (%s bytes)\n'
+      - name: Create release with assets
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || format('v{0}', github.run_number) }}
-          name: Fluenta ${{ github.ref_name }}
           generate_release_notes: true
-          files: dist/*
-          fail_on_unmatched_files: false
+          files: |
+            artifacts/android/fluenta-android.apk
+            artifacts/web/fluenta-web.zip
+            artifacts/desktop-linux/*
+            artifacts/desktop-windows/*
+            artifacts/desktop-macos/*

@@ -25,11 +25,14 @@ import {
   updateRole,
   useStore,
   assignRoles,
+  applyBadges,
 } from '../lib/store';
 import { uploadFile } from '../lib/api';
 import { useStore as useStoreHook } from '../lib/store';
 import type { Community, Member, Role } from '../lib/types';
 import { Avatar, Icon, ModalFrame, Spinner } from './ui';
+import { BadgeChip, BadgeGlyph } from './BadgeChip';
+import { grantBadge, revokeBadge, useBadgeCatalog } from '../lib/badges';
 import { cx } from '../lib/util';
 
 const PERMISSION_OPTIONS: { label: string; bit: number; hint: string }[] = [
@@ -780,6 +783,8 @@ function ProfileModal({ userId }: { userId: string }) {
   const me = useStoreHook((state) => state.me);
   const [communityId, setCommunityId] = useState<string>('');
   const [busy, setBusy] = useState(false);
+  const [badgeBusy, setBadgeBusy] = useState<string | null>(null);
+  const { catalog: badgeCatalog, canGrant } = useBadgeCatalog();
 
   const sharedCommunities = communities.filter((community) =>
     community.members.some((member) => member.userId === userId),
@@ -791,6 +796,7 @@ function ProfileModal({ userId }: { userId: string }) {
 
   if (!person) return null;
   const isMe = me?.id === userId;
+  const badges = member?.badges ?? person.badges ?? [];
 
   return (
     <ModalFrame title={member?.nickname || person.displayName} subtitle={`@${person.username}`} onClose={closeModal}>
@@ -804,6 +810,14 @@ function ProfileModal({ userId }: { userId: string }) {
           </p>
         </div>
       </div>
+
+      {badges.length > 0 && (
+        <div className="profile-badges">
+          {badges.map((key) => (
+            <BadgeChip key={key} badgeKey={key} showLabel size={14} />
+          ))}
+        </div>
+      )}
 
       {member?.bio && <p className="modal-text">{member.bio}</p>}
 
@@ -862,6 +876,46 @@ function ProfileModal({ userId }: { userId: string }) {
                   </span>
                 </label>
               ))}
+          </div>
+        </div>
+      )}
+
+      {canGrant && activeCommunity && member && badgeCatalog && (
+        <div className="modal-section">
+          <h3>Badges</h3>
+          <p className="modal-hint">You are the server founder, so you can grant these to anyone here.</p>
+          <div className="badge-grant-list">
+            {badgeCatalog
+              .filter((badge) => !badge.automatic)
+              .map((badge) => {
+                const has = badges.includes(badge.key);
+                return (
+                  <button
+                    key={badge.key}
+                    type="button"
+                    className={cx('badge-grant', has && 'granted')}
+                    style={{ '--badge-color': badge.color } as React.CSSProperties}
+                    disabled={badgeBusy === badge.key}
+                    title={badge.description}
+                    onClick={async () => {
+                      setBadgeBusy(badge.key);
+                      try {
+                        const next = has
+                          ? await revokeBadge(userId, badge.key)
+                          : await grantBadge(userId, badge.key);
+                        applyBadges(userId, next);
+                      } catch (err) {
+                        toastError(err);
+                      } finally {
+                        setBadgeBusy(null);
+                      }
+                    }}
+                  >
+                    {badgeBusy === badge.key ? <Spinner size={13} /> : <BadgeGlyph icon={badge.icon} size={13} />}
+                    {badge.name}
+                  </button>
+                );
+              })}
           </div>
         </div>
       )}

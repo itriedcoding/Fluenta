@@ -140,6 +140,11 @@ export function toastError(err: unknown) {
   toast(message, 'error');
 }
 
+/** Applies a badge list pushed by the server (grant, revoke or realtime). */
+export function applyBadges(userId: string, badges: string[]) {
+  handleRealtimeEvent({ op: 'badges:update', userId, badges } as RealtimeEvent);
+}
+
 export function openModal(modal: Modal) {
   // Only one surface at a time: a modal must never stack under an overlay.
   set({ modal, overlay: null });
@@ -1040,6 +1045,33 @@ export function handleRealtimeEvent(event: RealtimeEvent) {
       return;
     }
 
+    case 'badges:update': {
+      const userId = String(event.userId ?? '');
+      const badges = (event.badges ?? []) as string[];
+      if (!userId) return;
+      set((current) => ({
+        me: current.me?.id === userId ? { ...current.me, badges } : current.me,
+        people: current.people[userId] ? { ...current.people, [userId]: { ...current.people[userId], badges } } : current.people,
+        communities: current.communities.map((community) =>
+          community.members.some((m) => m.userId === userId)
+            ? {
+                ...community,
+                members: community.members.map((m) => (m.userId === userId ? { ...m, badges } : m)),
+              }
+            : community,
+        ),
+        conversations: current.conversations.map((conversation) =>
+          conversation.members.some((m) => m.userId === userId)
+            ? {
+                ...conversation,
+                members: conversation.members.map((m) => (m.userId === userId ? { ...m, badges } : m)),
+              }
+            : conversation,
+        ),
+      }));
+      return;
+    }
+
     case 'profile:update': {
       const user = event.user as User;
       if (!user) return;
@@ -1054,13 +1086,14 @@ export function handleRealtimeEvent(event: RealtimeEvent) {
             avatarUrl: user.avatarUrl,
             presence: user.presence,
             customStatus: user.customStatus,
+            badges: user.badges,
           },
         },
         communities: current.communities.map((community) => ({
           ...community,
           members: community.members.map((m) =>
             m.userId === user.id
-              ? { ...m, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl, presence: user.presence, customStatus: user.customStatus }
+              ? { ...m, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl, presence: user.presence, customStatus: user.customStatus, badges: user.badges ?? m.badges }
               : m,
           ),
         })),
@@ -1068,7 +1101,7 @@ export function handleRealtimeEvent(event: RealtimeEvent) {
           ...conversation,
           members: conversation.members.map((m) =>
             m.userId === user.id
-              ? { ...m, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl, presence: user.presence }
+              ? { ...m, username: user.username, displayName: user.displayName, avatarUrl: user.avatarUrl, presence: user.presence, badges: user.badges ?? m.badges }
               : m,
           ),
         })),

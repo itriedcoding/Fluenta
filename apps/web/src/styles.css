@@ -3898,3 +3898,252 @@ select.input {
 .empty-state p {
   font-size: 12.5px;
 }
+
+/* ---------------------------------------------------------------- badges --- */
+
+.badge-chip {
+  --badge-color: #b9b9c0;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--badge-color);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid color-mix(in srgb, var(--badge-color) 34%, transparent);
+  line-height: 1;
+  flex: none;
+}
+
+[data-theme='light'] .badge-chip {
+  background: rgba(20, 20, 30, 0.03);
+}
+
+.badge-chip-labeled {
+  padding: 4px 9px 4px 7px;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.badge-chip-label {
+  white-space: nowrap;
+}
+
+.badge-glyph {
+  flex: none;
+}
+
+.badge-stack {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 4px;
+}
+
+.badge-stack .badge-chip {
+  padding: 1.5px;
+  background: none;
+  border-color: transparent;
+}
+
+.badge-more {
+  font-size: 9.5px;
+  color: var(--muted);
+}
+
+.profile-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.badge-catalog {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.badge-card {
+  display: flex;
+  gap: 11px;
+  padding: 11px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  opacity: 0.72;
+}
+
+.badge-card.earned {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--badge-color, var(--accent-2)) 40%, var(--line));
+}
+
+.badge-card-icon {
+  --badge-color: var(--muted);
+  width: 34px;
+  height: 34px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  color: var(--badge-color);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid color-mix(in srgb, var(--badge-color) 30%, transparent);
+}
+
+.badge-card strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.badge-card p {
+  margin: 3px 0 2px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+.badge-card small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tag-muted {
+  color: var(--muted);
+  border-color: var(--line);
+}
+
+.tag-live {
+  color: var(--ok);
+  border-color: color-mix(in srgb, var(--ok) 40%, transparent);
+}
+
+.badge-grant-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.badge-grant {
+  --badge-color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.badge-grant.granted {
+  color: var(--badge-color);
+  border-color: color-mix(in srgb, var(--badge-color) 45%, transparent);
+  background: color-mix(in srgb, var(--badge-color) 12%, transparent);
+}
+
+/* --------------------------------------------------------------- updates --- */
+
+.update-pill {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 60;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-line);
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 12.5px;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+}
+
+.update-pill strong {
+  color: var(--accent-3);
+  font-weight: 700;
+}
+
+.update-pill.downloading,
+.update-pill.ready {
+  cursor: default;
+  color: var(--text-2);
+}
+
+.update-card {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--bg-2);
+  padding: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.update-card header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.update-card header div {
+  display: grid;
+  gap: 2px;
+}
+
+.update-card header span {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.update-notes {
+  margin: 0;
+  max-height: 190px;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-soft);
+  color: var(--text-2);
+  font-family: var(--font);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.update-progress {
+  position: relative;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--bg-1);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.update-progress > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: linear-gradient(90deg, var(--accent), var(--accent-3));
+  transition: width 240ms ease;
+}
+
+.update-progress small {
+  position: relative;
+  padding-left: 10px;
+  font-size: 11px;
+  color: var(--text);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}

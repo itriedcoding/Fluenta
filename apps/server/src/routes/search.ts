@@ -6,6 +6,7 @@ import { channelAccess, effectivePermissions } from '../access.ts';
 import { PERMISSIONS } from '../permissions.ts';
 import { presenceFor } from '../state.ts';
 import { fetchMessageRow, serializeMessages } from '../messages.ts';
+import { badgesForUsers } from '../badges.ts';
 
 const router = new Hono<Env>();
 router.use('*', requireAuth);
@@ -156,7 +157,10 @@ router.get('/', (c) => {
 
   return c.json({
     messages: messageResults,
-    users: userRows.map((u) => ({ ...publicUser(u), presence: presenceFor(u.id, u.presence) })),
+    users: (() => {
+      const badges = badgesForUsers(userRows.map((u) => u.id));
+      return userRows.map((u) => ({ ...publicUser(u), presence: presenceFor(u.id, u.presence), badges: badges[u.id] ?? [] }));
+    })(),
     channels: channelResults,
     communities: communityResults,
     conversations: dmResults,

@@ -3,6 +3,7 @@ import { openModal, useStore } from '../lib/store';
 import { cx } from '../lib/util';
 import type { Channel, Community, Member } from '../lib/types';
 import { Avatar, Icon } from './ui';
+import { BadgeStack } from './BadgeChip';
 
 export function Members({ community, channel }: { community: Community; channel?: Channel }) {
   const [query, setQuery] = useState('');
@@ -106,6 +107,7 @@ function MemberRow({ member, community }: { member: Member; community: Community
         <span className="member-name" style={color ? { color } : undefined}>
           {member.nickname || member.displayName}
           {member.userId === community.ownerId && <Icon name="crown" size={11} className="member-crown" />}
+          {member.badges && member.badges.length > 0 && <BadgeStack keys={member.badges} max={2} />}
         </span>
         {member.customStatus && <span className="member-status">{member.customStatus}</span>}
       </span>

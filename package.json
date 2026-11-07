@@ -28,7 +28,10 @@
     "desktop:start": "npm --prefix apps/desktop start",
     "desktop:dist": "npm --prefix apps/desktop run dist",
     "android:install": "npm --prefix apps/android install",
-    "android:sync": "npm --prefix apps/android run sync"
+    "android:sync": "npm --prefix apps/android run sync",
+    "android:version": "node scripts/sync-android-version.mjs",
+    "android:build": "npm run build:web && npm run android:version && npm --prefix apps/android run build:release",
+    "badges": "node apps/server/src/scripts/badges.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

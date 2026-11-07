@@ -7,6 +7,7 @@ import { hub } from '../realtime.ts';
 import { presenceAudience } from '../access.ts';
 import { now } from '../ids.ts';
 import { presenceFor } from '../state.ts';
+import { badgesFor } from '../badges.ts';
 
 const router = new Hono<Env>();
 
@@ -16,7 +17,10 @@ router.use('*', requireAuth);
 
 router.get('/', (c) => {
   const user = c.get('auth').user;
-  return c.json({ user: publicUser(user), presence: presenceFor(user.id, user.presence) });
+  return c.json({
+    user: { ...publicUser(user), badges: badgesFor(user.id) },
+    presence: presenceFor(user.id, user.presence),
+  });
 });
 
 router.patch('/', async (c) => {
@@ -71,11 +75,12 @@ router.patch('/', async (c) => {
 
   const user = get<UserRow>('SELECT * FROM users WHERE id = ?', auth.user.id)!;
   const presence = presenceFor(user.id, user.presence);
+  const badges = badgesFor(user.id);
   hub.broadcast(presenceAudience(user.id), {
     op: 'profile:update',
-    user: { ...publicUser(user), presence },
+    user: { ...publicUser(user), presence, badges },
   });
-  return c.json({ user: publicUser(user), presence });
+  return c.json({ user: { ...publicUser(user), badges }, presence });
 });
 
 router.post('/presence', async (c) => {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import {
   changePassword,
   deleteAccount,
@@ -17,18 +17,36 @@ import {
 import { disablePush, enablePush, pushState, registerServiceWorker } from '../lib/push';
 import { voice } from '../lib/webrtc';
 import type { PresenceChoice, SessionInfo } from '../lib/types';
-import { formatTimestamp, relativeTime } from '../lib/util';
+import { formatBytes, formatTimestamp, relativeTime } from '../lib/util';
 import { Avatar, Icon, Spinner } from './ui';
+import { BadgeChip, BadgeGlyph } from './BadgeChip';
+import { useBadgeCatalog } from '../lib/badges';
+import {
+  changeServer,
+  checkForUpdates,
+  getAppInfo,
+  installUpdate,
+  isNativeApp,
+  setAutoUpdate,
+  useUpdates,
+} from '../lib/updater';
+import { cx } from '../lib/util';
 
-type Section = 'profile' | 'account' | 'notifications' | 'voice' | 'sessions' | 'appearance';
+type Section = 'profile' | 'badges' | 'account' | 'notifications' | 'voice' | 'sessions' | 'appearance' | 'updates';
 
-const SECTIONS: { id: Section; label: string; icon: 'users' | 'shield' | 'bell' | 'mic' | 'lock' | 'sun' }[] = [
+const SECTIONS: {
+  id: Section;
+  label: string;
+  icon: 'users' | 'shield' | 'bell' | 'mic' | 'lock' | 'sun' | 'sparkle' | 'download';
+}[] = [
   { id: 'profile', label: 'Profile', icon: 'users' },
+  { id: 'badges', label: 'Badges', icon: 'sparkle' },
   { id: 'account', label: 'Account', icon: 'shield' },
   { id: 'notifications', label: 'Notifications', icon: 'bell' },
   { id: 'voice', label: 'Voice & video', icon: 'mic' },
   { id: 'sessions', label: 'Sessions', icon: 'lock' },
   { id: 'appearance', label: 'Appearance', icon: 'sun' },
+  { id: 'updates', label: 'App updates', icon: 'download' },
 ];
 
 export function Settings() {
@@ -77,11 +95,13 @@ export function Settings() {
           </header>
 
           {section === 'profile' && <ProfileSection />}
+          {section === 'badges' && <BadgesSection />}
           {section === 'account' && <AccountSection />}
           {section === 'notifications' && <NotificationsSection />}
           {section === 'voice' && <VoiceSection />}
           {section === 'sessions' && <SessionsSection />}
           {section === 'appearance' && <AppearanceSection />}
+          {section === 'updates' && <UpdatesSection />}
         </div>
       </div>
     </div>
@@ -557,6 +577,215 @@ function describeAgent(agent: string | null) {
   if (/firefox/i.test(agent)) return 'Firefox';
   if (/safari/i.test(agent)) return 'Safari';
   return 'Web browser';
+}
+
+function BadgesSection() {
+  const me = useStore((state) => state.me)!;
+  const { catalog, loading, error } = useBadgeCatalog();
+  const mine = me.badges ?? [];
+
+  return (
+    <>
+      <section className="settings-section">
+        <h3>Your badges</h3>
+        <p className="settings-hint">
+          Badges live on your account, so they follow you across web, desktop and Android. Automatic badges
+          are earned here; everything else is granted by this server's founder.
+        </p>
+        {mine.length === 0 ? (
+          <p className="settings-hint">No badges yet.</p>
+        ) : (
+          <div className="profile-badges">
+            {mine.map((key) => (
+              <BadgeChip key={key} badgeKey={key} showLabel size={15} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="settings-section">
+        <h3>Every badge on this server</h3>
+        {loading && !catalog && <Spinner size={18} />}
+        {error && <p className="auth-error">{error}</p>}
+        <div className="badge-catalog">
+          {catalog?.map((badge) => {
+            const earned = mine.includes(badge.key);
+            return (
+              <article key={badge.key} className={cx('badge-card', earned && 'earned')}>
+                <span
+                  className="badge-card-icon"
+                  style={{ '--badge-color': badge.color } as CSSProperties}
+                >
+                  <BadgeGlyph icon={badge.icon} size={18} />
+                </span>
+                <div>
+                  <strong>
+                    {badge.name}
+                    {earned && <span className="tag">earned</span>}
+                    {badge.automatic && <span className="tag tag-muted">automatic</span>}
+                  </strong>
+                  <p>{badge.description}</p>
+                  <small>{badge.howToEarn}</small>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function UpdatesSection() {
+  const updates = useUpdates();
+  const info = updates.info;
+  const native = isNativeApp();
+
+  useEffect(() => {
+    void getAppInfo();
+  }, []);
+
+  const release = updates.release;
+  const published = release?.publishedAt ? new Date(release.publishedAt).toLocaleDateString() : null;
+
+  return (
+    <>
+      <section className="settings-section">
+        <h3>Installed app</h3>
+        <div className="settings-row">
+          <div>
+            <strong>Fluenta {info ? info.version : '…'}</strong>
+            <span>
+              {info?.platform === 'android'
+                ? `Android build ${info.build}`
+                : info?.platform === 'desktop'
+                  ? 'Desktop shell'
+                  : 'Web client'}
+            </span>
+          </div>
+          <span className={cx('tag', native ? 'tag-live' : 'tag-muted')}>{native ? 'Android app' : 'Browser'}</span>
+        </div>
+        <p className="settings-hint">
+          Automatic updates are delivered from this project's GitHub releases. The app checks once every six
+          hours, downloads the APK over HTTPS and hands it to Android's package installer.
+        </p>
+      </section>
+
+      <section className="settings-section">
+        <h3>Updates</h3>
+        <label className="switch-row">
+          <input
+            type="checkbox"
+            checked={updates.auto}
+            disabled={!native}
+            onChange={(event) => setAutoUpdate(event.target.checked)}
+          />
+          <span>
+            <strong>Check for updates automatically</strong>
+            <small>At most once every six hours, only in the Android app.</small>
+          </span>
+        </label>
+
+        <div className="settings-row">
+          <div>
+            <strong>
+              {updates.status === 'checking'
+                ? 'Checking…'
+                : updates.status === 'current'
+                  ? 'You are up to date'
+                  : updates.status === 'available'
+                    ? 'Update available'
+                    : updates.status === 'downloading'
+                      ? 'Downloading update'
+                      : updates.status === 'ready'
+                        ? 'Ready to install'
+                        : updates.status === 'unsupported'
+                          ? 'Updates are for the Android app'
+                          : updates.status === 'error'
+                            ? 'Update check failed'
+                            : 'Not checked yet'}
+            </strong>
+            <span>
+              {updates.lastChecked
+                ? `Last checked ${relativeTime(updates.lastChecked)}`
+                : native
+                  ? 'Never checked on this device.'
+                  : 'This browser copy updates with the server it is loaded from.'}
+            </span>
+          </div>
+          <button
+            type="button"
+            className="btn btn-soft"
+            disabled={updates.status === 'checking' || updates.status === 'downloading' || !native}
+            onClick={() => void checkForUpdates({ force: true })}
+          >
+            {updates.status === 'checking' ? <Spinner size={16} /> : <Icon name="download" size={16} />} Check now
+          </button>
+        </div>
+
+        {updates.error && <p className="auth-error">{updates.error}</p>}
+
+        {release && updates.status !== 'current' && (
+          <article className="update-card">
+            <header>
+              <div>
+                <strong>Fluenta {release.version}</strong>
+                <span>
+                  {published ? `Released ${published}` : 'Release'}
+                  {release.apkSize ? ` · ${formatBytes(release.apkSize)}` : ''}
+                </span>
+              </div>
+              <span className="tag">latest</span>
+            </header>
+            {release.notes && <pre className="update-notes">{release.notes}</pre>}
+            {updates.status === 'downloading' && (
+              <div className="update-progress" role="progressbar" aria-valuenow={updates.progress} aria-valuemin={0} aria-valuemax={100}>
+                <span style={{ width: `${Math.max(4, updates.progress)}%` }} />
+                <small>{updates.progress > 0 ? `${Math.round(updates.progress)}%` : 'Starting download…'}</small>
+              </div>
+            )}
+            <div className="settings-actions">
+              {updates.status === 'available' && (
+                <button type="button" className="btn btn-primary" onClick={() => void installUpdate()}>
+                  <Icon name="download" size={16} /> Download &amp; install
+                </button>
+              )}
+              {updates.status === 'ready' && (
+                <button type="button" className="btn btn-primary" onClick={() => void installUpdate()}>
+                  <Icon name="download" size={16} /> Install again
+                </button>
+              )}
+              <a className="btn btn-ghost" href={release.htmlUrl} target="_blank" rel="noreferrer">
+                <Icon name="link" size={15} /> Release page
+              </a>
+            </div>
+          </article>
+        )}
+
+        {updates.status === 'ready' && (
+          <div className="settings-note">
+            <Icon name="check" size={15} />
+            <span>Android's installer is open. Confirm the update there to finish.</span>
+          </div>
+        )}
+      </section>
+
+      <section className="settings-section">
+        <h3>Server</h3>
+        <div className="settings-row">
+          <div>
+            <strong>{window.location.host}</strong>
+            <span>This app talks to the Fluenta server that served it.</span>
+          </div>
+          {native && (
+            <button type="button" className="btn btn-soft" onClick={() => void changeServer()}>
+              Change server
+            </button>
+          )}
+        </div>
+      </section>
+    </>
+  );
 }
 
 function AppearanceSection() {

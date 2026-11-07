@@ -20,6 +20,7 @@ import { inviteCode, now, randomToken, sha256, uid } from '../ids.ts';
 import { bad } from '../util.ts';
 import { sendMail } from '../mail.ts';
 import { DEFAULT_MEMBER_PERMISSIONS } from '../permissions.ts';
+import { badgesFor } from '../badges.ts';
 import crypto from 'node:crypto';
 
 const router = new Hono<Env>();
@@ -85,7 +86,7 @@ router.post('/signup', async (c) => {
   const user = get<UserRow>('SELECT * FROM users WHERE id = ?', id)!;
   const session = createSession(id, sessionMeta(c));
   setSessionCookie(c, session.token, config.sessionDays * 86400);
-  return c.json({ user: publicUser(user), token: session.token }, 201);
+  return c.json({ user: { ...publicUser(user), badges: badgesFor(user.id) }, token: session.token }, 201);
 });
 
 router.post('/login', async (c) => {
@@ -109,7 +110,7 @@ router.post('/login', async (c) => {
   const session = createSession(user.id, sessionMeta(c));
   setSessionCookie(c, session.token, config.sessionDays * 86400);
   run('UPDATE users SET updated_at = ? WHERE id = ?', now(), user.id);
-  return c.json({ user: publicUser(user), token: session.token });
+  return c.json({ user: { ...publicUser(user), badges: badgesFor(user.id) }, token: session.token });
 });
 
 router.post('/logout', requireAuth, async (c) => {
@@ -120,7 +121,8 @@ router.post('/logout', requireAuth, async (c) => {
 });
 
 router.get('/me', requireAuth, async (c) => {
-  return c.json({ user: publicUser(c.get('auth').user) });
+  const user = c.get('auth').user;
+  return c.json({ user: { ...publicUser(user), badges: badgesFor(user.id) } });
 });
 
 router.post('/forgot-password', async (c) => {
