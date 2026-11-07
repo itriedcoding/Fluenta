@@ -863,6 +863,10 @@ export async function joinVoice(channelId: string, video = false) {
   const channel = channelOf(channelId);
   if (!channel) return;
   await voice.join(channelId, { video });
+  // The voice panel only renders once we join, so surface a blocked microphone
+  // here — otherwise tapping a voice channel looks like nothing happened.
+  const failure = voice.snapshot.error;
+  if (failure) toast(failure, 'error');
 }
 
 export function leaveVoice() {
