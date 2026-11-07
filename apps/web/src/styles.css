@@ -72,6 +72,8 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body,
@@ -903,6 +905,8 @@ select.input {
   overflow-y: auto;
   padding: 10px 8px 16px;
   min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .channel-group {
@@ -1316,6 +1320,7 @@ select.input {
   min-height: 0;
   scroll-behavior: smooth;
   overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .messages-loading,
@@ -2468,6 +2473,9 @@ select.input {
   display: flex;
   flex-direction: column;
   gap: 14px;
+  min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .modal-foot {
@@ -2940,6 +2948,9 @@ select.input {
 .palette-body {
   overflow-y: auto;
   padding: 8px;
+  min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .palette-hint,
@@ -3125,6 +3136,9 @@ select.input {
   overflow-y: auto;
   padding: 20px 26px 40px;
   min-width: 0;
+  min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .settings-head {
@@ -3617,6 +3631,7 @@ select.input {
 @media (max-width: 980px) {
   .landing {
     grid-template-columns: 1fr;
+    -webkit-overflow-scrolling: touch;
   }
   .landing-hero {
     padding-bottom: 8px;
@@ -3646,7 +3661,14 @@ select.input {
     border-bottom: 1px solid var(--line-soft);
     gap: 6px;
     overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     flex: none;
+  }
+
+  .rail::-webkit-scrollbar {
+    display: none;
   }
 
   .rail-list {
@@ -3750,7 +3772,7 @@ select.input {
   }
 
   .composer-wrap {
-    padding: 0 10px 10px;
+    padding: 0 10px calc(10px + env(safe-area-inset-bottom));
   }
 
   .composer-hint.subtle {
@@ -3770,19 +3792,38 @@ select.input {
     width: auto;
   }
 
+  .settings-overlay {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
   .settings-panel {
     flex-direction: column;
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-left: 0;
   }
 
   .settings-nav {
     width: 100%;
+    flex: none;
     flex-direction: row;
     overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     padding: 8px;
     border-right: 0;
     border-bottom: 1px solid var(--line-soft);
     align-items: center;
     gap: 4px;
+  }
+
+  .settings-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .settings-nav-head {
@@ -3799,7 +3840,10 @@ select.input {
   }
 
   .settings-content {
-    padding: 16px 16px 40px;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 16px 16px calc(40px + env(safe-area-inset-bottom));
   }
 
   .auth-card {

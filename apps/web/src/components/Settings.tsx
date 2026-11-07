@@ -23,6 +23,8 @@ import { Avatar, Icon, Spinner } from './ui';
 import { BadgeChip, BadgeGlyph } from './BadgeChip';
 import { useBadgeCatalog } from '../lib/badges';
 import {
+  GITHUB_REPO,
+  RELEASES_PAGE,
   changeServer,
   checkForUpdates,
   getAppInfo,
@@ -648,6 +650,16 @@ function UpdatesSection() {
     void getAppInfo();
   }, []);
 
+  // Opening this tab syncs with GitHub, but at most once every ten minutes so
+  // flipping through Settings does not burn through the API rate limit.
+  const lastChecked = updates.lastChecked;
+  useEffect(() => {
+    if (!native) return;
+    if (updates.status === 'checking' || updates.status === 'downloading') return;
+    if (lastChecked && Date.now() - lastChecked < 10 * 60 * 1000) return;
+    void checkForUpdates();
+  }, [native, lastChecked, updates.status]);
+
   const release = updates.release;
   const published = release?.publishedAt ? new Date(release.publishedAt).toLocaleDateString() : null;
 
@@ -675,7 +687,18 @@ function UpdatesSection() {
       </section>
 
       <section className="settings-section">
-        <h3>Updates</h3>
+        <h3>Automatic updates</h3>
+        <div className="settings-row">
+          <div>
+            <strong>Synced with GitHub releases</strong>
+            <span>
+              New versions are published at github.com/{GITHUB_REPO} and installed straight from the release APK.
+            </span>
+          </div>
+          <a className="btn btn-ghost" href={RELEASES_PAGE} target="_blank" rel="noreferrer">
+            <Icon name="link" size={15} /> Releases
+          </a>
+        </div>
         <label className="switch-row">
           <input
             type="checkbox"
@@ -722,7 +745,7 @@ function UpdatesSection() {
             disabled={updates.status === 'checking' || updates.status === 'downloading' || !native}
             onClick={() => void checkForUpdates({ force: true })}
           >
-            {updates.status === 'checking' ? <Spinner size={16} /> : <Icon name="download" size={16} />} Check now
+            {updates.status === 'checking' ? <Spinner size={16} /> : <Icon name="download" size={16} />} Sync with GitHub
           </button>
         </div>
 
@@ -770,6 +793,19 @@ function UpdatesSection() {
             <Icon name="check" size={15} />
             <span>Android's installer is open. Confirm the update there to finish.</span>
           </div>
+        )}
+
+        {updates.status === 'current' && release && (
+          <p className="settings-hint">
+            Latest GitHub release: <strong>v{release.version}</strong>
+            {published ? ` · published ${published}` : ''} — you are running {info?.version ?? 'unknown'}. Nothing to install.
+          </p>
+        )}
+
+        {updates.status === 'unsupported' && (
+          <p className="settings-hint">
+            Automatic installs run in the Android app. In the browser, Fluenta updates when you reload the page.
+          </p>
         )}
       </section>
 
