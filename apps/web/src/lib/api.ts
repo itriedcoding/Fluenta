@@ -27,6 +27,12 @@ type Options = {
   signal?: AbortSignal;
 };
 
+/** True when the backend is this page's own origin (or the on-device backend). */
+function sameOrigin(base: string): boolean {
+  if (!base) return true;
+  return typeof window !== 'undefined' && base === window.location.origin;
+}
+
 export async function api<T>(path: string, options: Options = {}): Promise<T> {
   const base = serverBase();
   const token = base ? serverToken() : null;
@@ -35,9 +41,10 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
   if (token) headers.authorization = `Bearer ${token}`;
   const response = await fetch(`${base}${path}`, {
     method: options.method ?? 'GET',
-    // Server mode is cross-origin from the APK, so it authenticates with the
-    // bearer token instead of cookies.
-    credentials: base ? 'omit' : 'include',
+    // The APK talks to a backend on another origin, and cookies there would need
+    // SameSite=None, so it authenticates purely with the bearer token. A backend
+    // served from the same origin as the app can still use its session cookie.
+    credentials: sameOrigin(base) ? 'include' : 'omit',
     headers,
     body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
     signal: options.signal,
@@ -135,7 +142,7 @@ export async function uploadFile(
     const token = base ? serverToken() : null;
     const xhr = new XMLHttpRequest();
     xhr.open('POST', `${base}/api/uploads`);
-    xhr.withCredentials = !base;
+    xhr.withCredentials = sameOrigin(base);
     if (token) xhr.setRequestHeader('authorization', `Bearer ${token}`);
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && onProgress) onProgress(event.loaded / event.total);
