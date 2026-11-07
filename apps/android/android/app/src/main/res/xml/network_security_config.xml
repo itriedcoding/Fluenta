@@ -1,14 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Fluenta is self-hosted, and many people start their server on a LAN address
-  over plain HTTP (http://192.168.1.10:8787). Cleartext is therefore permitted
-  for the server the user types in; use HTTPS (and set APP_ORIGIN) for anything
-  reachable from the internet.
+  Everything the app talks to is HTTPS: the bundled client is served from the
+  WebView's own https origin and the backend is a normal https URL. Cleartext is
+  refused everywhere except the emulator/loopback addresses used by local
+  development, so the shipped app never allows unencrypted traffic.
 -->
 <network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+    <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
 </network-security-config>

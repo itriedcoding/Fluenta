@@ -1,17 +1,17 @@
 # Fluenta
 
 A lightweight, modern alternative to Discord: real-time communities, direct messages, voice,
-video and screen sharing in one fast app for **web, Windows/desktop and Android**.
+video and screen sharing in one fast **Android** app.
 
-Fluenta is one Node server with an embedded SQLite database and one React client. Every platform
-talks to that same backend, so accounts, communities, conversations, roles and settings are the
-same everywhere — there is no sync layer to fall out of date.
+Fluenta ships as a single signed APK. The whole client is bundled into the app, so it installs and
+opens straight into sign-up with nothing else to host, and there is no separate website build to
+keep in sync. Optionally point it at a self-hosted Fluenta server to share accounts and messages
+between phones.
 
 ```
-apps/server   Hono + node:sqlite + ws        REST, WebSocket hub, WebRTC signalling, Web Push
-apps/web      React 19 + Vite                The app. Served by the server in production
-apps/desktop  Electron shell                 Thin native window around your deployment
-apps/android  Capacitor shell                Self-contained Android app (on-device data)
+apps/server   Hono + node:sqlite + ws        Optional self-hosted backend (REST + WebSocket hub)
+apps/web      React 19 + Vite                The client UI, compiled into the APK
+apps/android  Capacitor shell                The Android app — the only shipped build
 ```
 
 ---
@@ -20,18 +20,19 @@ apps/android  Capacitor shell                Self-contained Android app (on-devi
 
 ```bash
 npm install
-npm run dev            # API on :8787, Vite on :5173 with a proxy
+npm run dev            # client on :5173 talking to the API on :8787
 ```
 
-Then open <http://localhost:5173>, create an account, and you are in. The first community you
-create gets `#general` and a `Lounge` voice channel.
-
-Production, single process:
+`npm run dev` only exists for working on the client UI; the product is the APK:
 
 ```bash
-npm ci
-npm run build:web      # builds the client into apps/server/public
-npm start              # http://localhost:8787 (server + client + WebSocket)
+npm run android:build  # signed release APK in apps/android/android/app/build/outputs/apk/release
+```
+
+The optional backend is the same Node process either way:
+
+```bash
+npm ci && npm start    # REST + WebSocket on :8787, data in apps/server/data
 ```
 
 Node **24+** is recommended (Node 22.6+ works; it runs the TypeScript sources directly, no build
@@ -90,9 +91,8 @@ ownership transfer guards, invites with expiry and usage limits.
 never renegotiates the whole room), device picker, mute/deafen, camera, screen share with a
 separate track, speaking indicators, and server-side room state so late joiners see who is in.
 
-**Notifications** — Web Push (VAPID keys generated and persisted on first boot) for browsers,
-installed PWAs and Android Chrome; local OS notifications while a desktop window is in the
-background.
+**Notifications** — unread counts and read state stay in sync inside the app; the APK has no push
+service to configure.
 
 **Search** — one palette (⌘K / Ctrl+K) for messages, people, channels and communities.
 
@@ -118,19 +118,6 @@ background.
 
 ---
 
-## Desktop app (Electron)
-
-```bash
-npm run desktop:install    # installs Electron in apps/desktop
-npm run desktop:start      # opens the shell
-npm run desktop:dist       # builds installers into apps/desktop/dist
-```
-
-On first launch the shell asks for your server address and remembers it. It is a real native
-window (own menu, external links open in the browser, window bounds persisted) — not a wrapped
-localhost dev server. Point it at `https://chat.example.com`, or at `http://localhost:8787` when
-self-hosting. Builds for Windows, macOS and Linux are produced by the release workflow.
-
 ## Android app
 
 The APK is **self-contained**: there is no server to run and no address to enter. The whole client
@@ -150,7 +137,7 @@ What that means in practice:
   server to sync through. Two people on one phone can each keep their own account.
 - **Voice rooms** open the microphone, support mute/deafen, camera and screen share UI, but with a
   single account on the device there is nobody else in the room to hear you. Real multi-user voice
-  needs the web/desktop build and a shared server.
+  needs the app built against a shared server (see below).
 
 ```bash
 npm run android:install      # Capacitor shell dependencies
@@ -179,9 +166,19 @@ distributed release, replace it with your own private key and set these reposito
 `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
 `ANDROID_KEY_PASSWORD`. Rotating the key later means installed users must reinstall manually.
 
-**Notifications on Android:** browsers and installed PWAs get real Web Push. The self-contained
-APK has no push service and does not need one — it shows in-app notifications while the app is
-running, and message history is already on the device when you reopen it.
+**Notifications on Android:** there is no website or PWA build, so no Web Push. The app shows
+in-app notifications while it runs, and message history is already on the device when you reopen
+it.
+
+### Install prompts
+
+The APK is distributed from GitHub, not the Play Store, so Android itself shows one prompt the app
+cannot remove: the first update install asks you to allow Fluenta to install unknown apps. The app
+handles that for real — it opens the exact system screen for its own package, then continues the
+install once you come back — and it verifies every download is an https APK served by GitHub before
+handing it to the installer. The manifest requests only the permissions the app uses (internet,
+network state, microphone, camera, audio settings) plus that install permission, and the release
+build refuses cleartext traffic outside emulator loopback addresses.
 
 ---
 
@@ -203,13 +200,17 @@ cross-community access, rate limits).
 ## Architecture
 
 ```
-Browser / Desktop                          Android APK
-   │  fetch /api/*                          │  same client, bundled
-   │  WebSocket /ws                         │  fetch + WebSocket intercepted
-   ▼                                        ▼
-Hono server ── ws hub ── SQLite          on-device backend ── IndexedDB
-   │                       │                 (accounts, spaces, messages,
-   └── uploads/ ── Web Push                  uploads, search, badges, voice)
+Android APK — client bundled inside
+   │
+   ├── default: fetch + WebSocket intercepted
+   ▼
+on-device backend ── IndexedDB
+   (accounts, spaces, messages, uploads, search, badges, voice)
+
+Android APK built with FLUENTA_SERVER_URL
+   │  fetch /api/*  +  WebSocket /ws  (bearer session token)
+   ▼
+Hono server ── ws hub ── SQLite ── uploads/
 ```
 
 Messages are written to SQLite first, then fanned out to the exact audience that is allowed to
@@ -228,8 +229,6 @@ reverse proxy; a multi-node future would replace the in-process hub with a share
 `.github/workflows/release.yml` builds on every `v*` tag and publishes a **GitHub Release** with:
 
 - `fluenta-android.apk` — the signed Android build (release-signed, verified with `apksigner` in CI)
-- `fluenta-web-*.zip` — static client bundle
-- Windows `.exe` (NSIS installer + portable), macOS `.dmg`, Linux `.AppImage` and `.deb`
 
 ```bash
 git tag v1.0.0
@@ -242,15 +241,12 @@ Or, without creating a tag locally, push a release branch whose name is the vers
 git push origin HEAD:release/v1.0.0
 ```
 
-Either path builds the web bundle and the signed APK, verifies it with `apksigner`, and attaches
-`fluenta-android.apk` to a GitHub Release tagged `v1.0.0` — exactly what the in-app updater reads.
-The APK and web bundle are required assets; desktop installers are attached when their builds
-succeed, so a platform packaging failure cannot keep the Android release offline. Running the
-**Release** workflow manually from the Actions tab builds and verifies the APK as a workflow
-artifact without publishing a release.
+Either path builds the signed APK, verifies it with `apksigner`, and attaches `fluenta-android.apk`
+to a GitHub Release tagged `v1.0.0` — exactly what the in-app updater reads. The APK is the only
+release asset. Running the **Release** workflow manually from the Actions tab builds and verifies
+the APK as a workflow artifact without publishing a release.
 
-Locally, `npm run bundle` produces the two web bundles in `release/`, and
-`npm run android:build` produces the signed APK at
+Locally, `npm run android:build` produces the signed APK at
 `apps/android/android/app/build/outputs/apk/release/app-release.apk`.
 
 ---

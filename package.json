@@ -1,6 +1,6 @@
 {
   "name": "fluenta",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "private": true,
   "type": "module",
   "description": "Fluenta — a lightweight, modern alternative to Discord for web, desktop and Android.",
@@ -24,7 +24,6 @@
     "seed": "node apps/server/src/scripts/seed.ts",
     "icons": "node scripts/generate-icons.mjs",
     "verify": "npm run typecheck && npm test && npm run build:web",
-    "bundle": "bash scripts/package-release.sh",
     "desktop:install": "npm --prefix apps/desktop install",
     "desktop:start": "npm --prefix apps/desktop start",
     "desktop:dist": "npm --prefix apps/desktop run dist",
