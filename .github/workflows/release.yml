@@ -166,7 +166,7 @@ jobs:
           echo "FLUENTA_VERSION=$VERSION"
           echo "FLUENTA_VERSION=$VERSION" >> "$GITHUB_ENV"
           npm ci
-          npm run build:web
+          npm run build:android-web
           npm run android:version
           cd apps/android
           npm ci

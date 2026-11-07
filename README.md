@@ -11,7 +11,7 @@ same everywhere — there is no sync layer to fall out of date.
 apps/server   Hono + node:sqlite + ws        REST, WebSocket hub, WebRTC signalling, Web Push
 apps/web      React 19 + Vite                The app. Served by the server in production
 apps/desktop  Electron shell                 Thin native window around your deployment
-apps/android  Capacitor shell                Native Android app around the same client
+apps/android  Capacitor shell                Self-contained Android app (on-device data)
 ```
 
 ---
@@ -133,19 +133,34 @@ self-hosting. Builds for Windows, macOS and Linux are produced by the release wo
 
 ## Android app
 
-The APK is a thin native shell that connects to **any** Fluenta server. On first launch it asks for
-the server address, verifies it with `GET /api/health`, then loads that server's client in the
-WebView. Settings → App updates → Server switches servers later. Nothing is hard-coded, so one APK
-works for every deployment, including a LAN address such as `http://192.168.1.10:8787`.
+The APK is **self-contained**: there is no server to run and no address to enter. The whole client
+ships inside the APK and runs against an on-device database
+(`apps/web/src/lib/localBackend.ts`), so the app opens straight into sign-up/sign-in. Accounts,
+communities, channels, direct messages, uploads, roles, badges and the voice room all work on the
+phone with nothing installed anywhere else, including offline.
+
+What that means in practice:
+
+- **Sign up or sign in** with an email and password stored as a PBKDF2-SHA-256 hash on the device.
+- **Create spaces**, text and voice channels, DMs and groups, and change every profile and account
+  setting — including password changes and a device-local password reset.
+- **Everything persists** in the app's private storage (IndexedDB inside the WebView) across
+  restarts and app updates.
+- Data is **per device**: accounts and messages do not sync to other phones, because there is no
+  server to sync through. Two people on one phone can each keep their own account.
+- **Voice rooms** open the microphone, support mute/deafen, camera and screen share UI, but with a
+  single account on the device there is nobody else in the room to hear you. Real multi-user voice
+  needs the web/desktop build and a shared server.
 
 ```bash
 npm run android:install      # Capacitor shell dependencies
+npm run build:android-web    # build the client into apps/android/www
 npm run android:sync         # copy www/ + capacitor config into the Gradle project
 npm run android:version      # sync versionName/versionCode from package.json
 cd apps/android/android && ./gradlew assembleDebug      # or assembleRelease
 ```
 
-`npm run android:build` does the web build, version sync and a signed release APK in one step.
+`npm run android:build` does the client build, version sync and a signed release APK in one step.
 The launcher icon, adaptive foreground and every splash screen are generated from the same custom
 mark by `npm run icons`.
 
@@ -164,9 +179,9 @@ distributed release, replace it with your own private key and set these reposito
 `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
 `ANDROID_KEY_PASSWORD`. Rotating the key later means installed users must reinstall manually.
 
-**Push on Android:** browsers and installed PWAs get real Web Push (including on Android Chrome).
-A Capacitor WebView cannot receive Web Push — a store build needs FCM wired through
-`@capacitor/push-notifications` and `google-services.json`. The PWA path is the supported one.
+**Notifications on Android:** browsers and installed PWAs get real Web Push. The self-contained
+APK has no push service and does not need one — it shows in-app notifications while the app is
+running, and message history is already on the device when you reopen it.
 
 ---
 
@@ -188,13 +203,13 @@ cross-community access, rate limits).
 ## Architecture
 
 ```
-Browser / Desktop / Android
-   │  fetch /api/*            (REST, JSON, cookie session)
-   │  WebSocket /ws           (messages, typing, presence, read, voice signalling)
-   ▼
-Hono server ── ws hub ── SQLite (WAL + FTS5) ── uploads/ ── Web Push
-                                │
-                                └── outbox/ (mail fallback)
+Browser / Desktop                          Android APK
+   │  fetch /api/*                          │  same client, bundled
+   │  WebSocket /ws                         │  fetch + WebSocket intercepted
+   ▼                                        ▼
+Hono server ── ws hub ── SQLite          on-device backend ── IndexedDB
+   │                       │                 (accounts, spaces, messages,
+   └── uploads/ ── Web Push                  uploads, search, badges, voice)
 ```
 
 Messages are written to SQLite first, then fanned out to the exact audience that is allowed to

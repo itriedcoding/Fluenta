@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../lib/api';
+import { isLocalMode } from '../lib/localBackend';
 import { signIn, signUp, useStore } from '../lib/store';
 import { Icon, Spinner } from './ui';
 
@@ -15,6 +16,7 @@ type InvitePreview = {
 
 export function Landing({ invitePath }: { invitePath: string | null }) {
   const authConfig = useStore((state) => state.authConfig);
+  const local = isLocalMode();
   const [mode, setMode] = useState<Mode>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -58,6 +60,14 @@ export function Landing({ invitePath }: { invitePath: string | null }) {
           displayName: displayName.trim() || username.trim(),
           password,
         });
+      } else if (local) {
+        await api('/api/auth/reset-password', {
+          method: 'POST',
+          body: { email: email.trim(), password },
+        });
+        setMode('signin');
+        setPassword('');
+        setNotice('Password updated. Sign in with your new password.');
       } else {
         const result = await api<{ delivery: string }>('/api/auth/forgot-password', {
           method: 'POST',
@@ -95,8 +105,9 @@ export function Landing({ invitePath }: { invitePath: string | null }) {
           <span className="hero-accent"> at your speed.</span>
         </h1>
         <p className="hero-sub">
-          Lightweight communities, direct messages, voice rooms and screen sharing — one fast app for web,
-          desktop and Android. No bloat, no noise.
+          {local
+            ? 'Your communities, direct messages and voice rooms live on this phone. Create an account and start talking — nothing to host, nothing to configure.'
+            : 'Lightweight communities, direct messages, voice rooms and screen sharing — one fast app for web, desktop and Android. No bloat, no noise.'}
         </p>
 
         <ul className="hero-points">
@@ -118,7 +129,7 @@ export function Landing({ invitePath }: { invitePath: string | null }) {
             <span className="point-icon"><Icon name="shield" size={16} /></span>
             <div>
               <strong>Yours to own</strong>
-              <p>Self-hostable backend, hashed passwords, scoped sessions and role-based permissions.</p>
+              <p>{local ? 'Everything is stored in this app on your phone, with hashed passwords and scoped sessions.' : 'Self-hostable backend, hashed passwords, scoped sessions and role-based permissions.'}</p>
             </div>
           </li>
         </ul>
@@ -140,8 +151,12 @@ export function Landing({ invitePath }: { invitePath: string | null }) {
               {mode === 'signin'
                 ? 'Sign in to pick up where you left off.'
                 : mode === 'signup'
-                  ? 'One minute to set up. Free forever on your own server.'
-                  : 'We will email you a secure link that expires in one hour.'}
+                  ? local
+                    ? 'One minute to set up. Your account and messages stay on this device.'
+                    : 'One minute to set up. Free forever on your own server.'
+                  : local
+                    ? 'Set a new password for an account stored on this phone.'
+                    : 'We will email you a secure link that expires in one hour.'}
             </p>
           </header>
 
@@ -202,7 +217,7 @@ export function Landing({ invitePath }: { invitePath: string | null }) {
                     onChange={(event) => setUsername(event.target.value.toLowerCase())}
                     placeholder="alex"
                     autoComplete="username"
-                    pattern="[-a-zA-Z0-9._]{3,24}"
+                    pattern="[a-zA-Z0-9._\-]{3,24}"
                     title="3-24 characters: letters, numbers, dot, dash, underscore"
                     required
                   />
@@ -224,9 +239,9 @@ export function Landing({ invitePath }: { invitePath: string | null }) {
               />
             </label>
 
-            {mode !== 'forgot' && (
+            {(mode !== 'forgot' || local) && (
               <label className="field">
-                <span className="field-label">Password</span>
+                <span className="field-label">{mode === 'forgot' && local ? 'New password' : 'Password'}</span>
                 <input
                   className="input"
                   type="password"
@@ -234,7 +249,7 @@ export function Landing({ invitePath }: { invitePath: string | null }) {
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="At least 8 characters"
                   autoComplete={mode === 'signin' ? 'current-password' : 'new-password'}
-                  minLength={mode === 'signup' ? 8 : 1}
+                  minLength={mode === 'signup' || (mode === 'forgot' && local) ? 8 : 1}
                   required
                 />
               </label>
@@ -245,7 +260,7 @@ export function Landing({ invitePath }: { invitePath: string | null }) {
 
             <button type="submit" className="btn btn-primary btn-block" disabled={busy}>
               {busy ? <Spinner size={16} /> : null}
-              {mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : 'Send reset link'}
+              {mode === 'signin' ? 'Sign in' : mode === 'signup' ? 'Create account' : local ? 'Update password' : 'Send reset link'}
             </button>
 
             {authConfig.google && mode !== 'forgot' && (

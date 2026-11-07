@@ -1,6 +1,6 @@
 {
   "name": "fluenta",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Fluenta — a lightweight, modern alternative to Discord for web, desktop and Android.",
@@ -17,6 +17,7 @@
     "dev:web": "vite --config apps/web/vite.config.ts",
     "build": "npm run build:web",
     "build:web": "vite build --config apps/web/vite.config.ts",
+    "build:android-web": "node scripts/build-android-web.mjs",
     "start": "node apps/server/src/index.ts",
     "typecheck": "tsc -p apps/server/tsconfig.json --noEmit && tsc -p apps/web/tsconfig.json --noEmit",
     "test": "node --test tests/",
@@ -30,7 +31,7 @@
     "android:install": "npm --prefix apps/android install",
     "android:sync": "npm --prefix apps/android run sync",
     "android:version": "node scripts/sync-android-version.mjs",
-    "android:build": "npm run build:web && npm run android:version && npm --prefix apps/android run build:release",
+    "android:build": "npm run build:android-web && npm run android:version && npm --prefix apps/android run build:release",
     "badges": "node apps/server/src/scripts/badges.ts"
   },
   "devDependencies": {

@@ -1,14 +1,13 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 /**
- * The Android app is a native shell around the same web client the server
- * serves. The server address is chosen inside the app on first launch (and can
- * be changed later in Settings); it is not baked in at build time, so a single
- * APK works for every self-hosted Fluenta instance.
+ * The Android app is self-contained: the whole web client is bundled in the APK
+ * under `www/` and runs against the on-device database installed by
+ * `apps/web/src/lib/localBackend.ts`. There is no server address to enter, so the
+ * app opens straight into sign-up/sign-in and every account, community, channel
+ * and message lives in the app's private storage.
  *
- * `www/` holds the connection screen (and the load-error screen) served from
- * the local WebView origin. As soon as a server is saved, the bridge loads that
- * origin instead and the real app takes over.
+ * `npm run build:android-web` populates `www/` before `cap sync android`.
  */
 const config: CapacitorConfig = {
   appId: 'app.fluenta.mobile',

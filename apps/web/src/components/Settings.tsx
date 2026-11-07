@@ -16,6 +16,7 @@ import {
 } from '../lib/store';
 import { disablePush, enablePush, pushState, registerServiceWorker } from '../lib/push';
 import { voice } from '../lib/webrtc';
+import { isLocalMode } from '../lib/localBackend';
 import type { PresenceChoice, SessionInfo } from '../lib/types';
 import { formatBytes, formatTimestamp, relativeTime } from '../lib/util';
 import { Avatar, Icon, Spinner } from './ui';
@@ -315,8 +316,9 @@ function NotificationsSection() {
     <section className="settings-section">
       <h3>Push notifications</h3>
       <p className="settings-hint">
-        Fluenta delivers notifications through the browser push service on web and desktop, and through
-        Firebase Cloud Messaging in the Android build.
+        {isLocalMode()
+          ? 'This build keeps everything on your phone, so there is no push service to set up. In-app alerts appear while the app is running.'
+          : 'Fluenta delivers notifications through the browser push service on web and desktop.'}
       </p>
       <div className="settings-row">
         <div>
@@ -640,6 +642,7 @@ function UpdatesSection() {
   const updates = useUpdates();
   const info = updates.info;
   const native = isNativeApp();
+  const local = isLocalMode();
 
   useEffect(() => {
     void getAppInfo();
@@ -771,13 +774,17 @@ function UpdatesSection() {
       </section>
 
       <section className="settings-section">
-        <h3>Server</h3>
+        <h3>Where your data lives</h3>
         <div className="settings-row">
           <div>
-            <strong>{window.location.host}</strong>
-            <span>This app talks to the Fluenta server that served it.</span>
+            <strong>{local ? 'On this device' : window.location.host}</strong>
+            <span>
+              {local
+                ? 'Your account, communities, messages and uploads are stored in this app on your phone. Nothing is sent to a server.'
+                : 'This app talks to the Fluenta server that served it.'}
+            </span>
           </div>
-          {native && (
+          {native && !local && (
             <button type="button" className="btn btn-soft" onClick={() => void changeServer()}>
               Change server
             </button>
