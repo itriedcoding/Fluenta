@@ -3,6 +3,10 @@ name: Release
 on:
   push:
     tags: ['v*']
+    # Publishing from a release branch lets maintainers cut a release with a
+    # plain branch push (no tag creation required). The branch name is the
+    # version: release/v1.2.0 becomes tag v1.2.0 and release "v1.2.0".
+    branches: ['release/v*']
   workflow_dispatch:
     inputs:
       version:
@@ -42,6 +46,9 @@ jobs:
 
   desktop:
     name: Desktop (${{ matrix.os }})
+    # Desktop installers are only built for tagged releases; branch-triggered
+    # releases focus on the APK and web bundle.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -86,8 +93,6 @@ jobs:
   android:
     name: Android APK
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -105,10 +110,12 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ github.event.inputs.version }}"
-          if [ -z "${VERSION:-}" ] && [[ "${GITHUB_REF}" == refs/tags/* ]]; then VERSION="${GITHUB_REF_NAME}"; fi
-          if [ -z "${VERSION:-}" ]; then VERSION="$(node -p "require('./package.json').version")"; fi
+          if [ -z "${VERSION:-}" ] && [[ "${GITHUB_REF}" == refs/tags/v* ]]; then VERSION="${GITHUB_REF_NAME#v}"; fi
+          if [ -z "${VERSION:-}" ] && [[ "${GITHUB_REF}" == refs/heads/release/v* ]]; then VERSION="${GITHUB_REF_NAME#release/v}"; fi
           VERSION="${VERSION#v}"
+          if [ -z "${VERSION:-}" ]; then VERSION="$(node -p "require('./package.json').version")"; fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
           echo "FLUENTA_VERSION=${VERSION}" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm run build:web
@@ -161,19 +168,38 @@ jobs:
 
   release:
     name: Publish GitHub release
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Runs for version tags and for release/v* branches. The APK and web bundle
+    # are required; desktop assets are attached when their builds produced them.
+    if: |
+      always() &&
+      (startsWith(github.ref, 'refs/tags/v') || startsWith(github.ref, 'refs/heads/release/v')) &&
+      needs.web.result == 'success' &&
+      needs.android.result == 'success'
     needs: [web, desktop, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+      - name: Resolve release tag
+        id: meta
+        run: |
+          set -euo pipefail
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            TAG="${GITHUB_REF_NAME}"
+          else
+            TAG="v${GITHUB_REF_NAME#release/v}"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
       - name: List release assets
         run: find artifacts -type f -printf '%p (%s bytes)\n'
       - name: Create release with assets
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.meta.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           generate_release_notes: true
+          fail_on_unmatched_files: false
           files: |
             artifacts/android/fluenta-android.apk
             artifacts/web/fluenta-web.zip

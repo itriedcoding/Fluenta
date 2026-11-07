@@ -221,9 +221,17 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-Pushing the tag runs the tests-free release build (CI builds the web bundle, the installers and the
-APK) and attaches the APK to the release, which is exactly what the in-app updater reads. Running
-the **Release** workflow manually from the Actions tab builds and verifies the APK as a workflow
+Or, without creating a tag locally, push a release branch whose name is the version:
+
+```bash
+git push origin HEAD:release/v1.0.0
+```
+
+Either path builds the web bundle and the signed APK, verifies it with `apksigner`, and attaches
+`fluenta-android.apk` to a GitHub Release tagged `v1.0.0` — exactly what the in-app updater reads.
+The APK and web bundle are required assets; desktop installers are attached when their builds
+succeed, so a platform packaging failure cannot keep the Android release offline. Running the
+**Release** workflow manually from the Actions tab builds and verifies the APK as a workflow
 artifact without publishing a release.
 
 Locally, `npm run bundle` produces the two web bundles in `release/`, and
