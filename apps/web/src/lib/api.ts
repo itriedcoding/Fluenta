@@ -1,3 +1,11 @@
+import {
+  forgetServerToken,
+  rememberServerToken,
+  rewriteServerUrls,
+  serverBase,
+  serverToken,
+} from './serverConfig';
+
 export class ApiError extends Error {
   status: number;
   constructor(status: number, message: string) {
@@ -20,11 +28,16 @@ type Options = {
 };
 
 export async function api<T>(path: string, options: Options = {}): Promise<T> {
+  const base = serverBase();
+  const token = base ? serverToken() : null;
   const headers: Record<string, string> = {};
   if (options.body !== undefined) headers['content-type'] = 'application/json';
-  const response = await fetch(path, {
+  if (token) headers.authorization = `Bearer ${token}`;
+  const response = await fetch(`${base}${path}`, {
     method: options.method ?? 'GET',
-    credentials: 'include',
+    // Server mode is cross-origin from the APK, so it authenticates with the
+    // bearer token instead of cookies.
+    credentials: base ? 'omit' : 'include',
     headers,
     body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
     signal: options.signal,
@@ -41,12 +54,24 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    if (response.status === 401) unauthorized?.();
+    if (response.status === 401) {
+      if (base) forgetServerToken();
+      unauthorized?.();
+    }
     const message =
       data && typeof data === 'object' && 'error' in data
         ? String((data as { error: string }).error)
         : `Request failed (${response.status})`;
     throw new ApiError(response.status, message);
+  }
+
+  if (base) {
+    // Sign-in responses carry the session token; keep it for later requests.
+    if (data && typeof data === 'object' && typeof (data as { token?: unknown }).token === 'string' && path.startsWith('/api/auth/')) {
+      rememberServerToken((data as { token: string }).token);
+    }
+    if (path === '/api/auth/logout') forgetServerToken();
+    data = rewriteServerUrls(data);
   }
   return data as T;
 }
@@ -106,16 +131,19 @@ export async function uploadFile(
       form.append('width', String(prepared.width));
       form.append('height', String(prepared.height));
     }
+    const base = serverBase();
+    const token = base ? serverToken() : null;
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/api/uploads');
-    xhr.withCredentials = true;
+    xhr.open('POST', `${base}/api/uploads`);
+    xhr.withCredentials = !base;
+    if (token) xhr.setRequestHeader('authorization', `Bearer ${token}`);
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable && onProgress) onProgress(event.loaded / event.total);
     };
     xhr.onload = () => {
       try {
         const parsed = JSON.parse(xhr.responseText);
-        if (xhr.status >= 200 && xhr.status < 300) resolve(parsed.upload as UploadedFile);
+        if (xhr.status >= 200 && xhr.status < 300) resolve(rewriteServerUrls(parsed.upload) as UploadedFile);
         else reject(new ApiError(xhr.status, parsed.error || 'Upload failed'));
       } catch {
         reject(new ApiError(xhr.status, 'Upload failed'));

@@ -69,6 +69,26 @@ app.use('*', async (c, next) => {
   for (const [key, value] of Object.entries(SECURITY_HEADERS)) c.res.headers.set(key, value);
 });
 
+/**
+ * Cross-origin API access for the Android app.
+ *
+ * The APK serves the client from its own origin and talks to this server with a
+ * bearer token (never the ambient cookie), so reflecting the request origin is
+ * safe here: an attacker's page has no token to send.
+ */
+app.use('*', async (c, next) => {
+  const origin = c.req.header('origin');
+  if (origin) {
+    c.header('access-control-allow-origin', origin);
+    c.header('vary', 'Origin');
+    c.header('access-control-allow-headers', 'authorization,content-type,accept');
+    c.header('access-control-allow-methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
+    c.header('access-control-max-age', '86400');
+  }
+  if (c.req.method === 'OPTIONS') return c.body(null, 204);
+  await next();
+});
+
 app.use('/api/*', async (c, next) => {
   const isUpload = c.req.path === '/api/uploads' && c.req.method === 'POST';
   const limit = isUpload ? config.maxUploadBytes + 2 * 1024 * 1024 : 512 * 1024;

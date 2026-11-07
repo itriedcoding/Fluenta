@@ -129,6 +129,9 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
       - name: Build and verify signed APK
+        env:
+          # Optional: bake a hosted backend into the APK (set the repo variable).
+          FLUENTA_SERVER_URL: ${{ vars.FLUENTA_SERVER_URL }}
         # One self-contained script: SDK discovery, install, web build, Capacitor
         # sync, Gradle release build and apksigner verification. Its whole output
         # is teed to a log so a failure can be reported on the run summary

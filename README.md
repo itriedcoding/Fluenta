@@ -258,3 +258,36 @@ Locally, `npm run bundle` produces the two web bundles in `release/`, and
 ## License
 
 MIT.
+
+## Pointing the Android app at a real backend
+
+The APK bundles the client. With no backend configured it keeps accounts and
+messages on the device. To run it against this repository's server instead,
+build the bundle with `FLUENTA_SERVER_URL`:
+
+```bash
+FLUENTA_SERVER_URL=https://chat.example.com npm run android:build
+```
+
+That bakes the address into the APK (users never type a server address), routes
+every API call, upload and realtime socket to that server, and authenticates with
+a bearer session token instead of cookies, so cross-origin requests from the
+WebView work. The on-device database is not installed in this mode.
+
+Deploy the server with the bundled Dockerfile:
+
+```bash
+docker build -t fluenta .
+docker run -d --name fluenta -p 8787:8787 \
+  -e APP_ORIGIN=https://chat.example.com \
+  -e FLUENTA_DATA_DIR=/data \
+  -v fluenta-data:/data \
+  fluenta
+```
+
+`APP_ORIGIN` must be the public https origin (it is used for cookies and reset
+links). Data lives in SQLite under `FLUENTA_DATA_DIR`, so mount a volume.
+
+For releases, set the repository **variable** `FLUENTA_SERVER_URL`; the Android
+job in `.github/workflows/release.yml` passes it to the bundle build, so every
+APK you publish talks to that backend automatically.

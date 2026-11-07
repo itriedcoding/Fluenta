@@ -194,8 +194,12 @@ const IDB_NAME = 'fluenta-device';
 const IDB_STORE = 'state';
 const IDB_KEY = 'database';
 
+import { serverBase } from './serverConfig';
+
 export function isLocalMode(): boolean {
   if (typeof window === 'undefined') return false;
+  // A build pointed at a real backend always uses it, even on Android.
+  if (serverBase()) return false;
   const flag = (window as unknown as { __FLUENTA_LOCAL__?: boolean }).__FLUENTA_LOCAL__;
   if (flag === true) return true;
   try {

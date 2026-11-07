@@ -1,3 +1,5 @@
+import { rewriteServerUrls, serverSocketUrl } from './serverConfig';
+
 export type RealtimeEvent = Record<string, unknown> & { op: string };
 export type ConnectionStatus = 'connecting' | 'online' | 'offline';
 
@@ -22,7 +24,9 @@ function connect() {
   if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return;
   closedByUs = false;
   const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  const url = `${protocol}://${location.host}/ws`;
+  // In server mode the socket lives on the configured backend and authenticates
+  // with the session token, because the APK runs on its own origin.
+  const url = serverSocketUrl() ?? `${protocol}://${location.host}/ws`;
   setStatus('connecting');
   const ws = new WebSocket(url);
   socket = ws;
@@ -37,7 +41,7 @@ function connect() {
 
   ws.onmessage = (message) => {
     try {
-      const parsed = JSON.parse(message.data as string) as RealtimeEvent;
+      const parsed = rewriteServerUrls(JSON.parse(message.data as string)) as RealtimeEvent;
       handler?.(parsed);
     } catch {
       /* ignore malformed frames */
